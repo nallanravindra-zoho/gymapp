@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
+import '../habits/habit_providers.dart';
 import '../week/week_providers.dart';
 import 'badges.dart';
 import 'streak_engine.dart';
@@ -104,6 +105,35 @@ final streakEffectsProvider = Provider<void>((ref) {
       }
     }
   }
+
+  Future<void> processHabits(Map<String, StreakResult> streaks) async {
+    final user = await ref.read(currentUserProvider.future);
+    final badges = ref.read(badgeRepositoryProvider);
+    final awarded = await badges.awardedKeys(user.id);
+    for (final e in streaks.entries) {
+      final due = milestonesDue(
+        scope: 'habit:${e.key}',
+        currentStreak: e.value.current,
+        alreadyAwarded: awarded,
+      );
+      for (final days in due) {
+        final isNew = await badges.award(
+          user.id,
+          streakBadgeKey('habit:${e.key}', days),
+        );
+        if (isNew) {
+          ref
+              .read(celebrationQueueProvider.notifier)
+              .add(milestoneMessage(days));
+        }
+      }
+    }
+  }
+
+  ref.listen<Map<String, StreakResult>>(habitStreaksProvider, (_, next) {
+    if (next.isEmpty) return;
+    tail = tail.then((_) => processHabits(next)).catchError((Object _) {});
+  }, fireImmediately: true);
 
   ref.listen<StreakSnapshot?>(streakSnapshotProvider, (_, next) {
     if (next == null) return;

@@ -28,15 +28,23 @@ flutter test
 - `lib/features/workouts`: log sheet, timestamp-based timer, icons, providers
 - `lib/features/week`: Mon-Sun strip, totals, day sheet, rest days
 - `lib/features/streaks`: streak engine (rest days, freeze), snapshot, badges, milestones screen, quiet celebration
+- `lib/features/habits`: habit setup, breaks card, detail, reminder config
+- `lib/features/reminders`: reminder planner (quiet hours, batching, cap), scheduler, Log/Snooze actions
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-5 of 13 done: project setup, local database, workouts, week view, streaks and milestones.
+Steps 1-6 of 13 done: project setup, local database, workouts, week view, streaks and milestones, habits and reminders.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
 ```
 dart run build_runner build
 ```
+
+## Reminders
+
+Reminders are local notifications, off by default per habit. They are rebuilt every time the app opens or a habit changes, and cover the next 7 days. If the app is not opened for more than a week, reminders stop until it is. Notification access is requested when you first turn reminders on.
+
+Android specifics: scheduling is inexact (no exact-alarm permission), the boot receiver restores scheduled reminders after a restart, and the Log and Snooze buttons run in a background isolate.

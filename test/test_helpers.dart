@@ -8,8 +8,15 @@ import 'package:wellbeing/app/app.dart';
 import 'package:wellbeing/core/time/app_clock.dart';
 import 'package:wellbeing/data/app_database.dart';
 import 'package:wellbeing/data/providers.dart';
+import 'package:wellbeing/features/reminders/notification_scheduler.dart';
+import 'package:wellbeing/features/reminders/reminder_providers.dart';
 
 final testNow = DateTime.utc(2026, 5, 13, 10);
+
+/// The notification scheduler used by the current [appTest]. It starts
+/// without notification permission and grants it when asked, unless a test
+/// sets `grantOnRequest` to false.
+late FakeNotificationScheduler testScheduler;
 
 /// Runs [body] against the full app on an in-memory database and a fixed
 /// clock (Wed 13 May 2026, 10:00 UTC), on a phone-sized surface.
@@ -29,9 +36,11 @@ void appTest(
     addTearDown(tester.view.reset);
 
     final db = AppDatabase(NativeDatabase.memory());
+    testScheduler = FakeNotificationScheduler(permitted: false);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          notificationSchedulerProvider.overrideWithValue(testScheduler),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],

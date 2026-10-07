@@ -92,6 +92,22 @@ class HabitRepository {
     return id;
   }
 
+  /// Removes the most recent completion on [localDate] (the minus button).
+  Future<void> removeLatestLog(String habitId, String localDate) async {
+    final latest =
+        await (_db.select(_db.habitLogs)
+              ..where(
+                (l) =>
+                    l.habitId.equals(habitId) &
+                    l.localDate.equals(localDate) &
+                    l.deletedAt.isNull(),
+              )
+              ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    if (latest != null) await deleteLog(latest.id);
+  }
+
   Future<void> deleteLog(String id) =>
       (_db.update(_db.habitLogs)..where((l) => l.id.equals(id))).write(
         HabitLogsCompanion(
@@ -112,6 +128,35 @@ class HabitRepository {
       );
     return q.watchSingle().map((r) => r.read(sum) ?? 0);
   }
+
+  /// Completions per habit id on one local date.
+  Stream<Map<String, int>> watchCountsForDate(String userId, String localDate) {
+    return (_db.select(_db.habitLogs)..where(
+          (l) =>
+              l.userId.equals(userId) &
+              l.localDate.equals(localDate) &
+              l.deletedAt.isNull(),
+        ))
+        .watch()
+        .map((logs) {
+          final counts = <String, int>{};
+          for (final l in logs) {
+            counts[l.habitId] = (counts[l.habitId] ?? 0) + l.count;
+          }
+          return counts;
+        });
+  }
+
+  /// Every live log, for streaks and history.
+  Stream<List<HabitLog>> watchAllLogs(String userId) {
+    return (_db.select(
+      _db.habitLogs,
+    )..where((l) => l.userId.equals(userId) & l.deletedAt.isNull())).watch();
+  }
+
+  Future<Habit?> byId(String id) => (_db.select(
+    _db.habits,
+  )..where((h) => h.id.equals(id) & h.deletedAt.isNull())).getSingleOrNull();
 
   Future<List<HabitLog>> logsBetween(String habitId, String from, String to) {
     return (_db.select(_db.habitLogs)..where(
