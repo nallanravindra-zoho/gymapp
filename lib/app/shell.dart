@@ -6,6 +6,7 @@ import '../data/providers.dart';
 import '../features/reminders/action_bridge.dart';
 import '../features/reminders/reminder_providers.dart';
 import '../features/screen_time/screen_time_providers.dart';
+import '../features/insights/insights_screen.dart';
 import '../features/streaks/celebration_host.dart';
 import '../features/streaks/streak_providers.dart';
 import '../features/today/today_screen.dart';
@@ -89,7 +90,7 @@ class _AppShellState extends ConsumerState<AppShell>
             TodayScreen(),
             WeekScreen(),
             PlaceholderScreen(title: 'Groups', note: 'No groups yet.'),
-            PlaceholderScreen(title: 'Insights', note: 'No insights yet.'),
+            InsightsScreen(),
             PlaceholderScreen(title: 'Chat', note: 'Not available yet.'),
           ],
         ),
