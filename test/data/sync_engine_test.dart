@@ -30,9 +30,13 @@ class Device {
     RemoteStore remote, {
     int chunkSize = 200,
     int pageSize = 500,
+    int createdAtMinute = 0,
   }) async {
     final db = AppDatabase(NativeDatabase.memory());
-    final user = await UserRepository(db, FixedClock(t(0))).ensureUser();
+    final user = await UserRepository(
+      db,
+      FixedClock(t(createdAtMinute)),
+    ).ensureUser();
     final engine = SyncEngine(
       db: db,
       remote: remote,
@@ -295,6 +299,11 @@ void main() {
     test(
       'a sync that drops part-way resumes without loss or repeats',
       () async {
+        // An edited profile is sent; an untouched default one is not.
+        await UserRepository(
+          a.db,
+          FixedClock(t(5)),
+        ).update(a.user.id, const UsersCompanion(displayName: Value('Divya')));
         await a.addWorkout(t(0));
         await a.addWorkout(t(60), type: 'builtin-run');
         // Profile and others succeed; the workouts table fails.
@@ -364,6 +373,59 @@ void main() {
       expect(u.displayName, 'Divya');
       expect(u.weeklyRestDays, 3);
       expect(u.freezeEnabled, isFalse);
+    });
+
+    test(
+      'a brand-new phone gets the account profile, not blank defaults',
+      () async {
+        await UserRepository(a.db, FixedClock(t(10))).update(
+          a.user.id,
+          const UsersCompanion(
+            displayName: Value('Divya'),
+            weeklyRestDays: Value(3),
+          ),
+        );
+        await a.sync();
+
+        // Installed long after the profile was last edited, so its default
+        // profile looks "newer" by timestamp.
+        final fresh = await Device.create(remote, createdAtMinute: 5000);
+        await fresh.sync();
+
+        final u = await UserRepository(fresh.db, FixedClock(t(0))).ensureUser();
+        expect(u.displayName, 'Divya');
+        expect(u.weeklyRestDays, 3);
+
+        // And it did not overwrite the account's profile on the way.
+        final server = remote.rows('profiles').single;
+        expect(server['display_name'], 'Divya');
+        expect(server['weekly_rest_days'], 3);
+        await fresh.db.close();
+      },
+    );
+
+    test('an untouched profile is never sent', () async {
+      await a.sync();
+      expect(remote.rows('profiles'), isEmpty);
+    });
+
+    test('an edited profile still follows last write wins', () async {
+      await UserRepository(
+        a.db,
+        FixedClock(t(10)),
+      ).update(a.user.id, const UsersCompanion(displayName: Value('Old')));
+      await a.sync();
+      await b.sync();
+      await UserRepository(
+        b.db,
+        FixedClock(t(60)),
+      ).update(b.user.id, const UsersCompanion(displayName: Value('Newer')));
+      await b.sync();
+      await a.sync();
+      expect(
+        (await UserRepository(a.db, FixedClock(t(0))).ensureUser()).displayName,
+        'Newer',
+      );
     });
 
     test('sleep targets and logs sync', () async {
@@ -513,6 +575,31 @@ void main() {
             .every((r) => r['share_in_groups'] == false),
         isTrue,
       );
+    });
+  });
+
+  group('the server only shows an account its own rows', () {
+    test('one account cannot read or write another\'s data', () async {
+      var who = 'account-a';
+      final server = FakeRemoteStore(accountId: () => who);
+      final row = {
+        'id': 'w1',
+        'user_id': 'account-a',
+        'updated_at': t(0).toIso8601String(),
+      };
+      await server.upsert('workouts', 'id', [row]);
+
+      who = 'account-b';
+      expect((await server.fetchChanges('workouts', 0)).rows, isEmpty);
+      expect(
+        () => server.upsert('workouts', 'id', [
+          {...row, 'id': 'w2'},
+        ]),
+        throwsA(isA<StateError>()),
+      );
+
+      who = 'account-a';
+      expect((await server.fetchChanges('workouts', 0)).rows.length, 1);
     });
   });
 

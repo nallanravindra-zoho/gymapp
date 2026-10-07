@@ -65,7 +65,9 @@ class ProfilesSync extends SyncTable {
     final q = db.select(db.users);
     if (since != null) q.where((u) => u.updatedAt.isBiggerOrEqualValue(since));
     return [
-      for (final u in await q.get())
+      // A profile nobody has edited is just the defaults. Sending it could
+      // replace the real one on the server with a newer-looking blank.
+      for (final u in (await q.get()).where((u) => u.updatedAt != u.createdAt))
         {
           'id': remoteUserId,
           'display_name': u.displayName,
@@ -92,7 +94,9 @@ class ProfilesSync extends SyncTable {
     )..where((u) => u.id.equals(localUserId))).getSingleOrNull();
     if (local == null) return false;
     final updated = _ts(r['updated_at']);
-    if (!updated.isAfter(local.updatedAt)) return false;
+    // An untouched local profile is only defaults: the account's wins.
+    final untouched = local.updatedAt == local.createdAt;
+    if (!untouched && !updated.isAfter(local.updatedAt)) return false;
     await (db.update(db.users)..where((u) => u.id.equals(localUserId))).write(
       UsersCompanion(
         displayName: Value(r['display_name'] as String? ?? ''),

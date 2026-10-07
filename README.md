@@ -4,6 +4,8 @@ Well-Being Companion: a minimalist Android-first app for workouts, habit breaks,
 
 ## Run locally
 
+For sign-in and sync, copy `env.example.json` to `env.json`, fill it in (see `supabase/README.md`) and add `--dart-define-from-file=env.json` to the run command. The app works offline without it.
+
 Requires the Flutter SDK (stable, Dart 3.13+) and Android Studio with an emulator or a USB-debugging device.
 
 ```
@@ -35,12 +37,13 @@ flutter test
 - `lib/data/sync`: local-first sync engine (push/pull, last write wins), tested against a simulated server
 - `supabase`: backend schema, row-level security and its tests; setup guide in `supabase/README.md`
 - `lib/features/insights`: rule engine (spec 7.7), tips selection, weekly recap, Insights screen
+- `lib/features/account`: Google sign-in, Account screen, sync controller and triggers
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-9 of 13 done (insights included), with the sync engine and backend schema ready for step 10 (accounts not connected yet): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time.
+Steps 1-10 of 13 done (insights, sign-in and live sync included): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 

@@ -21,7 +21,20 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build apk --debug
+      - name: Write build settings
+        # Empty if the repository secrets are not set; the app then builds
+        # without sign-in and works offline only.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          jq -n \
+            --arg url "$SUPABASE_URL" \
+            --arg key "$SUPABASE_PUBLISHABLE_KEY" \
+            --arg google "$GOOGLE_WEB_CLIENT_ID" \
+            '{SUPABASE_URL: $url, SUPABASE_PUBLISHABLE_KEY: $key, GOOGLE_WEB_CLIENT_ID: $google}' > env.json
+      - run: flutter build apk --debug --dart-define-from-file=env.json
       - uses: actions/upload-artifact@v4
         with:
           name: wellbeing-debug-apk

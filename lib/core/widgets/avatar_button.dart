@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/account/account_screen.dart';
 import '../theme/tokens.dart';
 
 /// Avatar at top right that opens Profile and Settings (spec section 5).
@@ -22,7 +23,9 @@ class AvatarButton extends StatelessWidget {
             color: context.tokens.accent,
           ),
         ),
-        onPressed: () {},
+        onPressed: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen())),
       ),
     );
   }

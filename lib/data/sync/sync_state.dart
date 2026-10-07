@@ -11,13 +11,20 @@ abstract class SyncStateStore {
   Future<int> pullCursor(String table);
   Future<void> setPullCursor(String table, int value);
 
-  /// Forget everything, e.g. after signing out or switching account.
+  /// The account this phone's data was last synced with, if any. Used to stop
+  /// one person's data from being merged into another account.
+  Future<String?> accountId();
+  Future<void> setAccountId(String? id);
+
+  /// Forget the sync positions (not the account id), e.g. before starting
+  /// afresh with another account.
   Future<void> reset();
 }
 
 class MemorySyncStateStore implements SyncStateStore {
   final Map<String, DateTime> _pushed = {};
   final Map<String, int> _cursor = {};
+  String? _account;
 
   @override
   Future<DateTime?> pushedUntil(String table) async => _pushed[table];
@@ -29,6 +36,10 @@ class MemorySyncStateStore implements SyncStateStore {
   @override
   Future<void> setPullCursor(String table, int value) async =>
       _cursor[table] = value;
+  @override
+  Future<String?> accountId() async => _account;
+  @override
+  Future<void> setAccountId(String? id) async => _account = id;
   @override
   Future<void> reset() async {
     _pushed.clear();
@@ -66,11 +77,36 @@ class PrefsSyncStateStore implements SyncStateStore {
     await prefs.setInt('${_prefix}pull_$table', value);
   }
 
+  static const _accountKey = 'sync_account_id';
+
+  @override
+  Future<String?> accountId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_accountKey);
+  }
+
+  @override
+  Future<void> setAccountId(String? id) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (id == null) {
+      await prefs.remove(_accountKey);
+    } else {
+      await prefs.setString(_accountKey, id);
+    }
+  }
+
   @override
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
-    for (final k
-        in prefs.getKeys().where((k) => k.startsWith(_prefix)).toList()) {
+    final positions = prefs
+        .getKeys()
+        .where(
+          (k) =>
+              k.startsWith('${_prefix}push_') ||
+              k.startsWith('${_prefix}pull_'),
+        )
+        .toList();
+    for (final k in positions) {
       await prefs.remove(k);
     }
   }

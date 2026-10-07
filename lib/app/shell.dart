@@ -6,6 +6,7 @@ import '../data/providers.dart';
 import '../features/reminders/action_bridge.dart';
 import '../features/reminders/reminder_providers.dart';
 import '../features/screen_time/screen_time_providers.dart';
+import '../features/account/sync_providers.dart';
 import '../features/insights/insights_screen.dart';
 import '../features/streaks/celebration_host.dart';
 import '../features/streaks/streak_providers.dart';
@@ -71,6 +72,7 @@ class _AppShellState extends ConsumerState<AppShell>
     // Usage access may have been granted in system settings; re-check, which
     // also refreshes today's totals.
     ref.invalidate(screenTimeAccessProvider);
+    ref.read(syncControllerProvider.notifier).syncNow();
   }
 
   @override
@@ -81,6 +83,8 @@ class _AppShellState extends ConsumerState<AppShell>
     ref.watch(reminderEffectsProvider);
     // Reads phone usage into the database once access is granted.
     ref.watch(screenTimeEffectsProvider);
+    // Keeps this phone and the signed-in account in step.
+    ref.watch(syncEffectsProvider);
 
     return CelebrationHost(
       child: Scaffold(

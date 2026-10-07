@@ -69,17 +69,38 @@ You need two free accounts: Supabase and Google Cloud.
 
 ### 3. Give the app the values
 
-The app reads them at build time, not from source control:
+The app reads three values at build time, from a file that is not committed.
+Copy `env.example.json` (in the project root) to `env.json` and fill it in:
+
+```json
+{
+  "SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
+  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_...",
+  "GOOGLE_WEB_CLIENT_ID": "YOUR-WEB-CLIENT-ID.apps.googleusercontent.com"
+}
+```
+
+Then run the app with:
 
 ```
-flutter run \
-  --dart-define=SUPABASE_URL=https://YOUR-PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR-ANON-KEY \
-  --dart-define=GOOGLE_WEB_CLIENT_ID=YOUR-WEB-CLIENT-ID.apps.googleusercontent.com
+flutter run --dart-define-from-file=env.json
 ```
+
+(In Android Studio, add `--dart-define-from-file=env.json` under *Run, Edit
+configurations, Additional run args*.) Without the file the app still works,
+offline only, and the Account screen says sync is not set up.
 
 For the downloadable CI build, add the same three as repository secrets named
-`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `GOOGLE_WEB_CLIENT_ID`.
+`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `GOOGLE_WEB_CLIENT_ID`.
+
+**Google sign-in and signing keys.** Google checks the SHA-1 of the key that
+signed the app, so each key you sign with must be added to the Android OAuth
+client. Builds from your own computer use your local debug key. CI builds use
+a different, throwaway key every run, so sign-in will not work in a CI-built
+APK. Use `flutter run` for sign-in testing.
+
+**In Supabase,** under *Authentication, Providers, Google*, put the **Web**
+client ID in both the client ID field and the *Authorized Client IDs* list.
 
 ## Testing the schema
 

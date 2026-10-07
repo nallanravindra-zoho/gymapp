@@ -34,7 +34,23 @@ abstract class RemoteStore {
 /// Behaves like the SQL in supabase/migrations: last write wins by
 /// `updated_at`, and each accepted write gets the next `sync_seq`.
 class FakeRemoteStore implements RemoteStore {
+  FakeRemoteStore({this.accountId});
+
+  /// The signed-in account. When given, the fake enforces row-level security
+  /// like the real server: it shows only that account's rows and refuses
+  /// writes for anyone else's.
+  final String? Function()? accountId;
+
   final Map<String, Map<Object?, Json>> _tables = {};
+
+  static Object? _owner(String table, Json row) =>
+      table == 'profiles' ? row['id'] : row['user_id'];
+
+  bool _visible(String table, Json row) {
+    final me = accountId?.call();
+    return accountId == null || _owner(table, row) == me;
+  }
+
   int _seq = 0;
 
   /// Set to make calls fail, to simulate being offline.
@@ -44,7 +60,11 @@ class FakeRemoteStore implements RemoteStore {
   /// drops part-way through a sync. Null means every table fails.
   String? failOnlyTable;
   int upsertCalls = 0;
+
+  /// How many times each table was sent to.
+  final Map<String, int> upsertsByTable = {};
   int rowsSent = 0;
+  int fetchCalls = 0;
 
   bool _fails(String table) =>
       failWith != null && (failOnlyTable == null || failOnlyTable == table);
@@ -57,9 +77,13 @@ class FakeRemoteStore implements RemoteStore {
   Future<void> upsert(String table, String keyColumn, List<Json> rows) async {
     if (_fails(table)) throw failWith!;
     upsertCalls++;
+    upsertsByTable[table] = (upsertsByTable[table] ?? 0) + 1;
     final store = _tables.putIfAbsent(table, () => {});
     for (final row in rows) {
       rowsSent++;
+      if (!_visible(table, row)) {
+        throw StateError('new row violates row-level security policy');
+      }
       final key = row[keyColumn];
       final existing = store[key];
       if (existing != null) {
@@ -78,9 +102,10 @@ class FakeRemoteStore implements RemoteStore {
     int limit = 500,
   }) async {
     if (_fails(table)) throw failWith!;
+    fetchCalls++;
     final all = [
       for (final r in (_tables[table] ?? const {}).values)
-        if ((r['sync_seq'] as int) > afterSeq) {...r},
+        if ((r['sync_seq'] as int) > afterSeq && _visible(table, r)) {...r},
     ]..sort((a, b) => (a['sync_seq'] as int).compareTo(b['sync_seq'] as int));
     final page = all.take(limit).toList();
     return RemotePage(

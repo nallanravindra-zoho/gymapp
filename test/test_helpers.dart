@@ -8,6 +8,10 @@ import 'package:wellbeing/app/app.dart';
 import 'package:wellbeing/core/time/app_clock.dart';
 import 'package:wellbeing/data/app_database.dart';
 import 'package:wellbeing/data/providers.dart';
+import 'package:wellbeing/data/sync/remote_store.dart';
+import 'package:wellbeing/data/sync/sync_state.dart';
+import 'package:wellbeing/features/account/auth_service.dart';
+import 'package:wellbeing/features/account/sync_providers.dart';
 import 'package:wellbeing/features/reminders/notification_scheduler.dart';
 import 'package:wellbeing/features/reminders/reminder_providers.dart';
 import 'package:wellbeing/features/screen_time/screen_time_providers.dart';
@@ -24,6 +28,12 @@ late FakeNotificationScheduler testScheduler;
 /// test passes its own.
 late FakeUsageSource testUsage;
 
+/// Sign-in and server stand-ins for the current [appTest]: nobody signed in
+/// and an empty server, unless the test passes its own.
+late AuthService testAuth;
+late FakeRemoteStore testRemote;
+late MemorySyncStateStore testSyncState;
+
 /// Runs [body] against the full app on an in-memory database and a fixed
 /// clock (Wed 13 May 2026, 10:00 UTC), on a phone-sized surface.
 ///
@@ -34,6 +44,8 @@ void appTest(
   String name,
   Future<void> Function(WidgetTester tester, AppDatabase db) body, {
   FakeUsageSource? usage,
+  AuthService? auth,
+  FakeRemoteStore? remote,
 }) {
   testWidgets(name, (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -45,11 +57,17 @@ void appTest(
     final db = AppDatabase(NativeDatabase.memory());
     testScheduler = FakeNotificationScheduler(permitted: false);
     testUsage = usage ?? FakeUsageSource(access: false);
+    testAuth = auth ?? FakeAuthService();
+    testRemote = remote ?? FakeRemoteStore();
+    testSyncState = MemorySyncStateStore();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           notificationSchedulerProvider.overrideWithValue(testScheduler),
           usageSourceProvider.overrideWithValue(testUsage),
+          authServiceProvider.overrideWithValue(testAuth),
+          remoteStoreProvider.overrideWithValue(testRemote),
+          syncStateProvider.overrideWithValue(testSyncState),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],
