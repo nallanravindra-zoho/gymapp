@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/widgets/placeholder_screen.dart';
 import '../features/today/today_screen.dart';
+import '../features/week/week_screen.dart';
 
 class _Tab {
   const _Tab(this.label, this.icon, this.selectedIcon);
@@ -36,7 +37,7 @@ class _AppShellState extends State<AppShell> {
         index: _index,
         children: const [
           TodayScreen(),
-          PlaceholderScreen(title: 'Week', note: 'Week view.'),
+          WeekScreen(),
           PlaceholderScreen(title: 'Groups', note: 'No groups yet.'),
           PlaceholderScreen(title: 'Insights', note: 'No insights yet.'),
           PlaceholderScreen(title: 'Chat', note: 'Not available yet.'),

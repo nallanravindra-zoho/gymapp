@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/time/local_date.dart';
 import '../../core/theme/section_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/app_database.dart';
@@ -16,6 +17,7 @@ Future<void> showLogWorkoutSheet(
   BuildContext context, {
   Workout? existing,
   bool startManual = false,
+  String? forDate,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -24,16 +26,28 @@ Future<void> showLogWorkoutSheet(
     showDragHandle: true,
     builder: (_) => SectionTheme(
       section: AppSection.workout,
-      child: LogWorkoutSheet(existing: existing, startManual: startManual),
+      child: LogWorkoutSheet(
+        existing: existing,
+        startManual: startManual,
+        forDate: forDate,
+      ),
     ),
   );
 }
 
 class LogWorkoutSheet extends ConsumerStatefulWidget {
-  const LogWorkoutSheet({super.key, this.existing, this.startManual = false});
+  const LogWorkoutSheet({
+    super.key,
+    this.existing,
+    this.startManual = false,
+    this.forDate,
+  });
 
   final Workout? existing;
   final bool startManual;
+
+  /// Local date (`YYYY-MM-DD`) to log for; opens in manual mode at 09:00.
+  final String? forDate;
 
   @override
   ConsumerState<LogWorkoutSheet> createState() => _LogWorkoutSheetState();
@@ -64,6 +78,11 @@ class _LogWorkoutSheetState extends ConsumerState<LogWorkoutSheet> {
       _end = w.endedAt.toLocal();
       _intensity = w.intensity;
       _note.text = w.note ?? '';
+      _manual = true;
+    } else if (widget.forDate != null) {
+      final d = parseLocalDate(widget.forDate!);
+      _start = DateTime(d.year, d.month, d.day, 9);
+      _end = _start.add(Duration(minutes: _duration));
       _manual = true;
     } else {
       _end = now;
