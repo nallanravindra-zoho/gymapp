@@ -32,12 +32,14 @@ flutter test
 - `lib/features/reminders`: reminder planner (quiet hours, batching, cap), scheduler, Log/Snooze actions
 - `lib/features/sleep`: sleep log, targets, 7-day consistency, wind-down checklist
 - `lib/features/screen_time`: usage source (Android channel), sync, Today and Week views, goal
+- `lib/data/sync`: local-first sync engine (push/pull, last write wins), tested against a simulated server
+- `supabase`: backend schema, row-level security and its tests; setup guide in `supabase/README.md`
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-8 of 13 done: project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time.
+Steps 1-8 of 13 done, with the sync engine and backend schema ready for step 10 (accounts not connected yet): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 

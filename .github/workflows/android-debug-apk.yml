@@ -27,3 +27,27 @@ jobs:
           name: wellbeing-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
+
+  supabase-schema:
+    name: Backend schema tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - run: psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_test'
+      - run: psql -v ON_ERROR_STOP=1 -d wellbeing_test -f supabase/tests/harness.sql
+      - run: psql -v ON_ERROR_STOP=1 -d wellbeing_test -f supabase/migrations/20261007000000_private_data_and_sync.sql
+      - name: Run schema tests
+        run: psql -v ON_ERROR_STOP=1 -d wellbeing_test -f supabase/tests/rls_and_sync.sql
