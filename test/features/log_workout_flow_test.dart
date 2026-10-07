@@ -102,4 +102,25 @@ void main() {
     expect(find.text('Timer running'), findsNothing);
     expect(await db.select(db.workouts).get(), isEmpty);
   });
+
+  appTest('adding a custom workout type selects it and can be saved', (
+    tester,
+    db,
+  ) async {
+    await tester.tap(find.text('Log workout'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Climbing');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Climbing'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Logged. 30 min climbing.'), findsOneWidget);
+    final types = await db.select(db.workoutTypes).get();
+    expect(types.where((t) => !t.isBuiltin).single.name, 'Climbing');
+  });
 }

@@ -95,30 +95,10 @@ class _LogWorkoutSheetState extends ConsumerState<LogWorkoutSheet> {
   }
 
   Future<void> _addCustom() async {
-    final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Custom workout'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'Name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+      builder: (_) => const _CustomTypeDialog(),
     );
-    ctrl.dispose();
     if (name == null || name.isEmpty) return;
     final user = await ref.read(currentUserProvider.future);
     final type = await ref
@@ -441,6 +421,49 @@ class _TimeRow extends StatelessWidget {
       title: Text(label),
       trailing: Text('$date  $time'),
       onTap: onTap,
+    );
+  }
+}
+
+/// Owns its text controller, so the controller outlives the dialog's exit
+/// animation and is disposed only when the dialog is truly gone.
+class _CustomTypeDialog extends StatefulWidget {
+  const _CustomTypeDialog();
+
+  @override
+  State<_CustomTypeDialog> createState() => _CustomTypeDialogState();
+}
+
+class _CustomTypeDialogState extends State<_CustomTypeDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.pop(context, _controller.text.trim());
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Custom workout'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        decoration: const InputDecoration(hintText: 'Name'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _submit, child: const Text('Add')),
+      ],
     );
   }
 }
