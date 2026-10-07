@@ -37,6 +37,7 @@ Future<void> main() async {
 
   // Sign-in and sync need the build settings; without them the app runs
   // offline-only. A failure to start them must never stop the app opening.
+  String? setupIssue;
   SupabaseAuthService? auth;
   SupabaseRemoteStore? remote;
   if (AppConfig.isConfigured) {
@@ -52,6 +53,7 @@ Future<void> main() async {
       remote = SupabaseRemoteStore(Supabase.instance.client);
     } catch (e) {
       debugPrint('Sync could not start: $e');
+      setupIssue = e.toString();
     }
   }
 
@@ -59,6 +61,7 @@ Future<void> main() async {
     overrides: [
       notificationSchedulerProvider.overrideWithValue(scheduler),
       usageSourceProvider.overrideWithValue(AndroidUsageSource()),
+      syncSetupIssueProvider.overrideWithValue(setupIssue),
       if (auth != null) authServiceProvider.overrideWithValue(auth),
       if (remote != null) remoteStoreProvider.overrideWithValue(remote),
     ],

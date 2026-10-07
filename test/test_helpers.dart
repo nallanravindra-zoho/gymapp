@@ -45,6 +45,7 @@ void appTest(
   Future<void> Function(WidgetTester tester, AppDatabase db) body, {
   FakeUsageSource? usage,
   AuthService? auth,
+  String? setupIssue,
   FakeRemoteStore? remote,
 }) {
   testWidgets(name, (tester) async {
@@ -66,6 +67,7 @@ void appTest(
           notificationSchedulerProvider.overrideWithValue(testScheduler),
           usageSourceProvider.overrideWithValue(testUsage),
           authServiceProvider.overrideWithValue(testAuth),
+          syncSetupIssueProvider.overrideWithValue(setupIssue),
           remoteStoreProvider.overrideWithValue(testRemote),
           syncStateProvider.overrideWithValue(testSyncState),
           databaseProvider.overrideWithValue(db),

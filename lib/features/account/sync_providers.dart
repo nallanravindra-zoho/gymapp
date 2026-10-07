@@ -10,6 +10,10 @@ import '../../data/sync/sync_engine.dart';
 import '../../data/sync/sync_state.dart';
 import 'auth_service.dart';
 
+/// Why sync could not start, when the build has settings but starting
+/// Supabase or Google failed. Set in main(); null otherwise.
+final syncSetupIssueProvider = Provider<String?>((_) => null);
+
 /// Overridden with the Supabase implementation in main() when configured.
 final authServiceProvider = Provider<AuthService>(
   (_) => UnavailableAuthService(),

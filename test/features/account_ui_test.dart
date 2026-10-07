@@ -117,6 +117,35 @@ void main() {
     expect(find.text('Continue with Google'), findsNothing);
   }, auth: UnavailableAuthService());
 
+  appTest('a build without settings names what is missing, never values', (
+    tester,
+    db,
+  ) async {
+    await openAccount(tester);
+    expect(find.textContaining('This build is missing:'), findsOneWidget);
+    expect(find.textContaining('SUPABASE_URL'), findsOneWidget);
+    expect(find.textContaining('SUPABASE_PUBLISHABLE_KEY'), findsOneWidget);
+    expect(find.textContaining('GOOGLE_WEB_CLIENT_ID'), findsOneWidget);
+    expect(
+      find.textContaining('--dart-define-from-file=env.json'),
+      findsOneWidget,
+    );
+  }, auth: UnavailableAuthService());
+
+  appTest(
+    'a startup failure is shown instead of the missing-settings hint',
+    (tester, db) async {
+      await openAccount(tester);
+      expect(
+        find.textContaining('Sync could not start: network unreachable'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('This build is missing'), findsNothing);
+    },
+    auth: UnavailableAuthService(),
+    setupIssue: 'network unreachable',
+  );
+
   group('signed in', () {
     appTest('starts syncing as soon as the app opens', (tester, db) async {
       await tester.pump(const Duration(seconds: 1));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import 'auth_service.dart';
@@ -63,9 +64,18 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
     Widget body;
     if (!auth.isAvailable) {
-      body = const _Message(
+      final issue = ref.watch(syncSetupIssueProvider);
+      final missing = AppConfig.missing;
+      body = _Message(
         title: 'Sync is not set up in this build',
-        detail: 'Everything works on this phone without an account.',
+        detail: [
+          'Everything works on this phone without an account.',
+          if (issue != null)
+            'Sync could not start: $issue'
+          else if (missing.isNotEmpty)
+            'This build is missing: ${missing.join(', ')}. Run it with '
+                '--dart-define-from-file=env.json (see supabase/README.md).',
+        ].join('\n\n'),
       );
     } else if (user == null) {
       body = Column(

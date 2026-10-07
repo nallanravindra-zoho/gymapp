@@ -21,6 +21,14 @@ class AppConfig {
     'GOOGLE_WEB_CLIENT_ID',
   );
 
+  /// Names of the settings this build does not have, so a problem can be
+  /// described without showing any values.
+  static List<String> get missing => [
+    if (supabaseUrl.isEmpty) 'SUPABASE_URL',
+    if (supabaseKey.isEmpty) 'SUPABASE_PUBLISHABLE_KEY',
+    if (googleWebClientId.isEmpty) 'GOOGLE_WEB_CLIENT_ID',
+  ];
+
   /// False in builds made without the settings: the app still works fully
   /// offline and simply does not offer sign-in.
   static bool get isConfigured =>
