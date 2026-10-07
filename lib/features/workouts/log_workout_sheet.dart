@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -212,7 +214,14 @@ class _LogWorkoutSheetState extends ConsumerState<LogWorkoutSheet> {
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        // Clear the keyboard, or the system navigation bar when no keyboard
+        // is showing (Android draws the app edge to edge).
+        bottom:
+            math.max(
+              MediaQuery.viewInsetsOf(context).bottom,
+              MediaQuery.paddingOf(context).bottom,
+            ) +
+            16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

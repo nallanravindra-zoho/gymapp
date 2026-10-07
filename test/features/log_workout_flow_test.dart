@@ -123,4 +123,21 @@ void main() {
     final types = await db.select(db.workoutTypes).get();
     expect(types.where((t) => !t.isBuiltin).single.name, 'Climbing');
   });
+
+  appTest('action buttons clear the system navigation bar', (tester, db) async {
+    // 132 physical px at 2.75 dpr = 48 logical px of navigation bar.
+    tester.view.padding = const FakeViewPadding(bottom: 132);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 132);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Log workout'));
+    await tester.pumpAndSettle();
+
+    final screenHeight = tester.view.physicalSize.height / 2.75;
+    final saveBottom = tester.getBottomLeft(find.text('Save')).dy;
+    final startBottom = tester
+        .getBottomLeft(find.widgetWithText(OutlinedButton, 'Start timer'))
+        .dy;
+    expect(saveBottom, lessThanOrEqualTo(screenHeight - 48));
+    expect(startBottom, lessThanOrEqualTo(screenHeight - 48));
+  });
 }
