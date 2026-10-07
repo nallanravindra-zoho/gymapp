@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/avatar_button.dart';
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
+import '../streaks/streak_card.dart';
 import '../workouts/log_workout_sheet.dart';
 import '../workouts/timer_screen.dart';
 import '../workouts/workout_icons.dart';
@@ -44,6 +45,8 @@ class TodayScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
+          const StreakCard(),
+          const SizedBox(height: 12),
           if (timer != null) ...[
             _ResumeTimerCard(
               onTap: () => Navigator.of(context).push(

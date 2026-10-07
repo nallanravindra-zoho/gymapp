@@ -38,7 +38,7 @@ void main() {
     expect(find.text('30'), findsOneWidget); // active minutes
     expect(find.text('Active minutes'), findsOneWidget);
     expect(find.text('Active days'), findsOneWidget);
-    expect(find.text('Yoga'), findsOneWidget); // per-type row
+    expect(find.text('Yoga'), findsWidgets); // totals row and streaks row
   });
 
   appTest('two workouts on one day show a count badge', (tester, db) async {
@@ -53,8 +53,8 @@ void main() {
     await openWeek(tester);
 
     expect(find.text('2'), findsWidgets); // badge and totals
-    expect(find.text('Yoga'), findsOneWidget);
-    expect(find.text('Walk'), findsOneWidget);
+    expect(find.text('Yoga'), findsWidgets);
+    expect(find.text('Walk'), findsWidgets);
   });
 
   appTest('tapping a day opens it; rest day can be marked and removed', (

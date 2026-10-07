@@ -155,6 +155,13 @@ class WorkoutRepository {
         .watch();
   }
 
+  /// Live stream of every non-deleted workout, for streak computation.
+  Stream<List<Workout>> watchAll(String userId) {
+    return (_db.select(
+      _db.workouts,
+    )..where((w) => w.userId.equals(userId) & w.deletedAt.isNull())).watch();
+  }
+
   Future<List<Workout>> allLive(String userId) {
     return (_db.select(
       _db.workouts,

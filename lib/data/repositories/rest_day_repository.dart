@@ -70,6 +70,12 @@ class RestDayRepository {
         .watch();
   }
 
+  Stream<List<RestDay>> watchAll(String userId) {
+    return (_db.select(
+      _db.restDays,
+    )..where((r) => r.userId.equals(userId) & r.deletedAt.isNull())).watch();
+  }
+
   Future<List<RestDay>> all(String userId) => (_db.select(
     _db.restDays,
   )..where((r) => r.userId.equals(userId) & r.deletedAt.isNull())).get();

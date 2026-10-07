@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/time/app_clock.dart';
 import 'app_database.dart';
+import 'repositories/badge_repository.dart';
 import 'repositories/habit_repository.dart';
 import 'repositories/rest_day_repository.dart';
 import 'repositories/screen_time_repository.dart';
 import 'repositories/sleep_repository.dart';
+import 'repositories/streak_cache_repository.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/workout_repository.dart';
 
@@ -42,6 +44,14 @@ final screenTimeRepositoryProvider = Provider(
     ref.watch(databaseProvider),
     ref.watch(clockProvider),
   ),
+);
+
+final badgeRepositoryProvider = Provider(
+  (ref) =>
+      BadgeRepository(ref.watch(databaseProvider), ref.watch(clockProvider)),
+);
+final streakCacheRepositoryProvider = Provider(
+  (ref) => StreakCacheRepository(ref.watch(databaseProvider)),
 );
 
 /// The local user, created on first read.

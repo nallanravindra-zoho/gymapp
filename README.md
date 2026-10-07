@@ -27,12 +27,13 @@ flutter test
 - `lib/data`: Drift schema (`tables/`), `app_database.dart`, repositories, Riverpod providers
 - `lib/features/workouts`: log sheet, timestamp-based timer, icons, providers
 - `lib/features/week`: Mon-Sun strip, totals, day sheet, rest days
+- `lib/features/streaks`: streak engine (rest days, freeze), snapshot, badges, milestones screen, quiet celebration
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-4 of 13 done: project setup, local database, workouts, week view (strip, totals, rest days, day sheet).
+Steps 1-5 of 13 done: project setup, local database, workouts, week view, streaks and milestones.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/widgets/placeholder_screen.dart';
+import '../features/streaks/celebration_host.dart';
+import '../features/streaks/streak_providers.dart';
 import '../features/today/today_screen.dart';
 import '../features/week/week_screen.dart';
 
@@ -20,40 +23,45 @@ const _tabs = [
 ];
 
 /// Bottom-tab shell (spec section 5). Each tab keeps its own state.
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: const [
-          TodayScreen(),
-          WeekScreen(),
-          PlaceholderScreen(title: 'Groups', note: 'No groups yet.'),
-          PlaceholderScreen(title: 'Insights', note: 'No insights yet.'),
-          PlaceholderScreen(title: 'Chat', note: 'Not available yet.'),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(
-              icon: Icon(t.icon),
-              selectedIcon: Icon(t.selectedIcon),
-              label: t.label,
-            ),
-        ],
+    // Keeps the streak cache fresh and awards badges while the app is open.
+    ref.watch(streakEffectsProvider);
+
+    return CelebrationHost(
+      child: Scaffold(
+        body: IndexedStack(
+          index: _index,
+          children: const [
+            TodayScreen(),
+            WeekScreen(),
+            PlaceholderScreen(title: 'Groups', note: 'No groups yet.'),
+            PlaceholderScreen(title: 'Insights', note: 'No insights yet.'),
+            PlaceholderScreen(title: 'Chat', note: 'Not available yet.'),
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          destinations: [
+            for (final t in _tabs)
+              NavigationDestination(
+                icon: Icon(t.icon),
+                selectedIcon: Icon(t.selectedIcon),
+                label: t.label,
+              ),
+          ],
+        ),
       ),
     );
   }

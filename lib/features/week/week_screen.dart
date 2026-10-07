@@ -7,6 +7,7 @@ import '../../core/widgets/avatar_button.dart';
 import '../../data/app_database.dart';
 import '../workouts/workout_icons.dart';
 import '../workouts/workout_providers.dart';
+import '../streaks/streak_card.dart';
 import 'day_sheet.dart';
 import 'week_providers.dart';
 import 'week_summary.dart';
@@ -58,6 +59,9 @@ class WeekScreen extends ConsumerWidget {
                   today: today,
                 ),
                 const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                const WeekStreaks(),
+                const SizedBox(height: 12),
                 _Totals(
                   summary: summarizeWeek(workouts),
                   types: types,
