@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/section_theme.dart';
 import '../theme/tokens.dart';
+import 'avatar_button.dart';
 
 /// Temporary body for tabs whose features land in later build steps.
 class PlaceholderScreen extends StatelessWidget {
@@ -22,7 +23,7 @@ class PlaceholderScreen extends StatelessWidget {
       section: section,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: Text(title), actions: const [_AvatarButton()]),
+        appBar: AppBar(title: Text(title), actions: const [AvatarButton()]),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Align(
@@ -34,31 +35,6 @@ class PlaceholderScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AvatarButton extends StatelessWidget {
-  const _AvatarButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: IconButton(
-        tooltip: 'Profile and settings',
-        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        icon: CircleAvatar(
-          radius: 14,
-          backgroundColor: context.tokens.accent.withValues(alpha: 0.15),
-          child: Icon(
-            Icons.person_outline,
-            size: 18,
-            color: context.tokens.accent,
-          ),
-        ),
-        onPressed: () {},
       ),
     );
   }

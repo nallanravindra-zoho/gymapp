@@ -25,12 +25,13 @@ flutter test
 - `lib/core/widgets`: shared widgets
 - `lib/core/time`: `local_date` helper (day cutoff, Mon-Sun weeks) and injectable clock
 - `lib/data`: Drift schema (`tables/`), `app_database.dart`, repositories, Riverpod providers
+- `lib/features/workouts`: log sheet, timestamp-based timer, icons, providers
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-2 of 13 done: project setup and the local database.
+Steps 1-3 of 13 done: project setup, local database, workouts (log sheet, timer, manual entry, edit, delete).
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
