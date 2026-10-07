@@ -23,9 +23,17 @@ flutter test
 
 - `lib/core/theme`: colour tokens, theme, `SectionTheme`
 - `lib/core/widgets`: shared widgets
+- `lib/core/time`: `local_date` helper (day cutoff, Mon-Sun weeks) and injectable clock
+- `lib/data`: Drift schema (`tables/`), `app_database.dart`, repositories, Riverpod providers
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Step 1 of 13 done: project setup, tokens, light/dark mode, five-tab shell.
+Steps 1-2 of 13 done: project setup and the local database.
+
+The generated `*.g.dart` files are committed. After changing a table, regenerate with:
+
+```
+dart run build_runner build
+```
