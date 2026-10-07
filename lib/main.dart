@@ -7,6 +7,8 @@ import 'data/providers.dart';
 import 'features/reminders/plugin_scheduler.dart';
 import 'features/reminders/reminder_actions.dart';
 import 'features/reminders/reminder_providers.dart';
+import 'features/screen_time/screen_time_providers.dart';
+import 'features/screen_time/usage_source.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +30,10 @@ Future<void> main() async {
   );
 
   container = ProviderContainer(
-    overrides: [notificationSchedulerProvider.overrideWithValue(scheduler)],
+    overrides: [
+      notificationSchedulerProvider.overrideWithValue(scheduler),
+      usageSourceProvider.overrideWithValue(AndroidUsageSource()),
+    ],
   );
 
   runApp(

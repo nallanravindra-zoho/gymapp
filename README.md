@@ -31,12 +31,13 @@ flutter test
 - `lib/features/habits`: habit setup, breaks card, detail, reminder config
 - `lib/features/reminders`: reminder planner (quiet hours, batching, cap), scheduler, Log/Snooze actions
 - `lib/features/sleep`: sleep log, targets, 7-day consistency, wind-down checklist
+- `lib/features/screen_time`: usage source (Android channel), sync, Today and Week views, goal
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-7 of 13 done: project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep.
+Steps 1-8 of 13 done: project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
@@ -49,3 +50,9 @@ dart run build_runner build
 Reminders are local notifications, off by default per habit. They are rebuilt every time the app opens or a habit changes, and cover the next 7 days. If the app is not opened for more than a week, reminders stop until it is. Notification access is requested when you first turn reminders on.
 
 Android specifics: scheduling is inexact (no exact-alarm permission), the boot receiver restores scheduled reminders after a restart, and the Log and Snooze buttons run in a background isolate.
+
+## Screen time
+
+Android only. It needs the Usage access permission, which the user grants in system settings after an explanation screen. A small Kotlin module (`UsageReader.kt`) reads app foreground time from Android's usage events and returns only totals: the day's minutes, minutes per category, and minutes per hour. App names never reach Dart or the database. Sharing in groups is off by default.
+
+Usage data is only meaningful on a real device. Emulators have almost no usage history.

@@ -58,6 +58,24 @@ class ScreenTimeRepository {
     );
   }
 
+  /// Local dates in `[from, to]` that already have a row.
+  Future<Set<String>> datesBetween(
+    String userId,
+    String from,
+    String to,
+  ) async {
+    final rows =
+        await (_db.select(_db.screenTimeDaily)..where(
+              (s) =>
+                  s.userId.equals(userId) &
+                  s.deletedAt.isNull() &
+                  s.localDate.isBiggerOrEqualValue(from) &
+                  s.localDate.isSmallerOrEqualValue(to),
+            ))
+            .get();
+    return {for (final r in rows) r.localDate};
+  }
+
   Stream<List<ScreenTimeDailyData>> watchBetween(
     String userId,
     String from,

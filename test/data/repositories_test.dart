@@ -39,6 +39,17 @@ void main() {
       expect(a.freezeIntervalDays, 7);
     });
 
+    test('concurrent callers get one user, not several', () async {
+      // Startup asks for the user from many places at once.
+      final repo = UserRepository(db, clock);
+      final other = UserRepository(db, clock);
+      final users = await Future.wait([
+        for (var i = 0; i < 5; i++) (i.isEven ? repo : other).ensureUser(),
+      ]);
+      expect(users.map((u) => u.id).toSet().length, 1);
+      expect((await db.select(db.users).get()).length, 1);
+    });
+
     test('streak settings are configurable', () async {
       final repo = UserRepository(db, clock);
       await repo.update(

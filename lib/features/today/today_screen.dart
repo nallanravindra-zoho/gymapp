@@ -8,6 +8,7 @@ import '../../core/widgets/avatar_button.dart';
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
 import '../habits/breaks_card.dart';
+import '../screen_time/screen_time_card.dart';
 import '../sleep/sleep_card.dart';
 import '../streaks/streak_card.dart';
 import '../workouts/log_workout_sheet.dart';
@@ -62,6 +63,8 @@ class TodayScreen extends ConsumerWidget {
           const BreaksCard(),
           const SizedBox(height: 12),
           const SleepCard(),
+          const SizedBox(height: 12),
+          const ScreenTimeCard(),
           const SizedBox(height: 16),
           Row(
             children: [

@@ -5,6 +5,7 @@ import '../core/widgets/placeholder_screen.dart';
 import '../data/providers.dart';
 import '../features/reminders/action_bridge.dart';
 import '../features/reminders/reminder_providers.dart';
+import '../features/screen_time/screen_time_providers.dart';
 import '../features/streaks/celebration_host.dart';
 import '../features/streaks/streak_providers.dart';
 import '../features/today/today_screen.dart';
@@ -66,6 +67,9 @@ class _AppShellState extends ConsumerState<AppShell>
     final db = ref.read(databaseProvider);
     db.markTablesUpdated([db.habitLogs, db.habits]);
     ref.invalidate(todayDateProvider);
+    // Usage access may have been granted in system settings; re-check, which
+    // also refreshes today's totals.
+    ref.invalidate(screenTimeAccessProvider);
   }
 
   @override
@@ -74,6 +78,8 @@ class _AppShellState extends ConsumerState<AppShell>
     ref.watch(streakEffectsProvider);
     // Keeps scheduled reminders in step with habits and today's progress.
     ref.watch(reminderEffectsProvider);
+    // Reads phone usage into the database once access is granted.
+    ref.watch(screenTimeEffectsProvider);
 
     return CelebrationHost(
       child: Scaffold(
