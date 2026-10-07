@@ -38,9 +38,11 @@ class SectionTheme extends StatelessWidget {
       ),
     );
 
+    // A Material (not a ColoredBox) so list tiles and buttons inside still
+    // paint their ink on top of the wash.
     return Theme(
       data: themed,
-      child: ColoredBox(color: wash ?? Colors.transparent, child: child),
+      child: wash == null ? child : Material(color: wash, child: child),
     );
   }
 }

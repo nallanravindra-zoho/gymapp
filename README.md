@@ -30,12 +30,13 @@ flutter test
 - `lib/features/streaks`: streak engine (rest days, freeze), snapshot, badges, milestones screen, quiet celebration
 - `lib/features/habits`: habit setup, breaks card, detail, reminder config
 - `lib/features/reminders`: reminder planner (quiet hours, batching, cap), scheduler, Log/Snooze actions
+- `lib/features/sleep`: sleep log, targets, 7-day consistency, wind-down checklist
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-6 of 13 done: project setup, local database, workouts, week view, streaks and milestones, habits and reminders.
+Steps 1-7 of 13 done: project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
