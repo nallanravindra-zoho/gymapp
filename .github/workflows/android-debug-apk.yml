@@ -64,3 +64,11 @@ jobs:
       - run: psql -v ON_ERROR_STOP=1 -d wellbeing_test -f supabase/migrations/20261007000000_private_data_and_sync.sql
       - name: Run schema tests
         run: psql -v ON_ERROR_STOP=1 -d wellbeing_test -f supabase/tests/rls_and_sync.sql
+      - run: psql -v ON_ERROR_STOP=1 -d wellbeing_test -f supabase/migrations/20261008000000_groups.sql
+      # Groups tests need a database of their own: they check exact weekly totals.
+      - name: Run groups tests
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_groups'
+          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql tests/groups.sql; do
+            psql -v ON_ERROR_STOP=1 -d wellbeing_groups -f supabase/$f
+          done

@@ -9,6 +9,8 @@ fully offline with no account, and syncing is added on top once you sign in.
 |---|---|
 | `migrations/20261007000000_private_data_and_sync.sql` | The ten private per-user tables, row-level security, and the sync triggers |
 | `tests/rls_and_sync.sql` | Behaviour tests for the above, run on a real PostgreSQL |
+| `migrations/20261008000000_groups.sql` | Groups: members, feed, cheers, weekly leaderboard, invite codes, and who can see what |
+| `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 
 ## How sync works
@@ -45,7 +47,8 @@ You need two free accounts: Supabase and Google Cloud.
 
 1. Sign up at supabase.com and create a project (any name, closest region).
 2. Open **SQL Editor**, paste the contents of
-   `migrations/20261007000000_private_data_and_sync.sql`, and run it.
+   `migrations/20261007000000_private_data_and_sync.sql`, and run it. For groups, do the same
+   with `migrations/20261008000000_groups.sql` afterwards.
 3. Open **Project Settings, API** and note two values:
    * **Project URL**
    * **anon public key**
@@ -111,4 +114,11 @@ createdb wellbeing_test
 psql -v ON_ERROR_STOP=1 -d wellbeing_test -f tests/harness.sql
 psql -v ON_ERROR_STOP=1 -d wellbeing_test -f migrations/20261007000000_private_data_and_sync.sql
 psql -v ON_ERROR_STOP=1 -d wellbeing_test -f tests/rls_and_sync.sql   # ends with: ALL CHECKS PASSED
+
+# Groups tests want a fresh database (they check exact totals):
+createdb wellbeing_groups
+for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql \
+         migrations/20261008000000_groups.sql tests/groups.sql; do
+  psql -v ON_ERROR_STOP=1 -d wellbeing_groups -f $f
+done
 ```
