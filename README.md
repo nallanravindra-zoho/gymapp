@@ -45,7 +45,7 @@ flutter test
 
 ## Status
 
-Steps 1-12 of 13 done (settings, export and account deletion included; push notifications for groups still to come): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time, insights, sign-in and sync, groups.
+Steps 1-13 of 13 done (release prep included). Group push notifications were deliberately skipped: cheers and invites show in the group feed, and FCM can be added later: project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time, insights, sign-in and sync, groups.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
@@ -86,3 +86,9 @@ Open the avatar at top right, then *Settings*.
 - *Export all data* writes a JSON file of everything on the phone (timestamps in UTC); *Export workouts* writes a CSV. Both open the phone's share sheet. Spreadsheet cells that start with `=`, `+`, `-` or `@` are prefixed with an apostrophe so notes never run as formulas.
 - *Erase data on this phone* (signed out only) removes entries and settings from the phone.
 - *Delete account* (signed in) calls the `delete_my_account()` database function (`supabase/migrations/20261009000000_delete_account.sql`, run it in the SQL editor). It removes the account and everything stored for it, including group memberships; a group the person owned passes to the longest-standing member. Data on the phone stays, and signing in later with any account starts from it.
+
+## Releasing
+
+Signed builds, Play Store steps, the privacy policy draft and the Google sign-in key registration are in [docs/release.md](docs/release.md) and [docs/privacy-policy.md](docs/privacy-policy.md). A CI job (`Release build check`) builds the release variant with a throwaway key on every push, so the signing setup cannot silently break; the real signed build is the manual `Android release (signed)` workflow.
+
+A test (`test/copy_rules_test.dart`) reads every string in the app and fails on exclamation marks, emojis and guilt wording.

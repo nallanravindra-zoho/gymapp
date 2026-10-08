@@ -1,7 +1,7 @@
 name: wellbeing
-description: "A new Flutter project."
+description: "Well-Being Companion: workouts, habit breaks, sleep and screen time."
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ^3.13.0

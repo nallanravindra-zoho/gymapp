@@ -41,6 +41,36 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
 
+  release-build:
+    # Proves the release build and the signing setup work, using a throwaway
+    # key made here. The real signed build is android-release.yml.
+    name: Release build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Make a throwaway signing key
+        run: |
+          keytool -genkeypair -keystore android/app/throwaway.jks -storepass throwaway -keypass throwaway \
+            -alias throwaway -keyalg RSA -keysize 2048 -validity 2 -dname "CN=CI check"
+          printf 'storeFile=app/throwaway.jks\nstorePassword=throwaway\nkeyAlias=throwaway\nkeyPassword=throwaway\n' > android/key.properties
+      - run: flutter build apk --release
+      - name: The release build is signed with that key, not the debug key
+        run: |
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
+          OUT=$($APKSIGNER verify --print-certs build/app/outputs/flutter-apk/app-release.apk)
+          echo "$OUT"
+          echo "$OUT" | grep -q "CN=CI check"
+          ! echo "$OUT" | grep -qi "Android Debug"
+
   supabase-schema:
     name: Backend schema tests
     runs-on: ubuntu-latest
