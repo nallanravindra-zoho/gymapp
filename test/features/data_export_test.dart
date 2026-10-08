@@ -111,7 +111,7 @@ void main() {
       await UserRepository(
         db,
         FixedClock(now),
-      ).update(userId, const UsersCompanion(displayName: const Value('Divya')));
+      ).update(userId, const UsersCompanion(displayName: Value('Divya')));
       await addWorkout(note: 'morning');
       final export = await buildJsonExport(db, now);
       expect(export.fileName, 'wellbeing-data-2026-05-13.json');
