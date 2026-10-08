@@ -14,6 +14,7 @@ import 'package:wellbeing/features/account/auth_service.dart';
 import 'package:wellbeing/features/account/sync_providers.dart';
 import 'package:wellbeing/features/reminders/notification_scheduler.dart';
 import 'package:wellbeing/features/reminders/reminder_providers.dart';
+import 'package:wellbeing/features/reminders/system_settings.dart';
 import 'package:wellbeing/features/screen_time/screen_time_providers.dart';
 import 'package:wellbeing/features/screen_time/usage_source.dart';
 
@@ -27,6 +28,9 @@ late FakeNotificationScheduler testScheduler;
 /// The usage source for the current [appTest]: no usage access unless the
 /// test passes its own.
 late FakeUsageSource testUsage;
+
+/// The phone-settings stand-in for the current [appTest].
+late FakeSystemSettings testSystem;
 
 /// Sign-in and server stand-ins for the current [appTest]: nobody signed in
 /// and an empty server, unless the test passes its own.
@@ -58,6 +62,7 @@ void appTest(
     final db = AppDatabase(NativeDatabase.memory());
     testScheduler = FakeNotificationScheduler(permitted: false);
     testUsage = usage ?? FakeUsageSource(access: false);
+    testSystem = FakeSystemSettings();
     testAuth = auth ?? FakeAuthService();
     testRemote = remote ?? FakeRemoteStore();
     testSyncState = MemorySyncStateStore();
@@ -66,6 +71,7 @@ void appTest(
         overrides: [
           notificationSchedulerProvider.overrideWithValue(testScheduler),
           usageSourceProvider.overrideWithValue(testUsage),
+          systemSettingsProvider.overrideWithValue(testSystem),
           authServiceProvider.overrideWithValue(testAuth),
           syncSetupIssueProvider.overrideWithValue(setupIssue),
           remoteStoreProvider.overrideWithValue(testRemote),

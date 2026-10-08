@@ -99,6 +99,53 @@ class PluginNotificationScheduler implements NotificationScheduler {
   }
 
   @override
+  Future<NotificationDiagnostics> diagnose() async {
+    final android = _android;
+    final enabled = await hasPermission();
+
+    String? level;
+    try {
+      final channels = await android?.getNotificationChannels();
+      final ours = channels?.where((c) => c.id == _channelId).firstOrNull;
+      level = ours == null
+          ? null
+          : switch (ours.importance) {
+              Importance.high || Importance.max => 'High',
+              Importance.defaultImportance => 'Default',
+              Importance.low || Importance.min => 'Low',
+              Importance.none => 'Muted',
+              _ => 'Default',
+            };
+    } catch (_) {
+      level = null;
+    }
+
+    bool? exact;
+    try {
+      exact = await android?.canScheduleExactNotifications();
+    } catch (_) {
+      exact = null;
+    }
+
+    var shown = <int>[];
+    try {
+      shown = [
+        for (final n in await _plugin.getActiveNotifications())
+          if (n.id != null) n.id!,
+      ];
+    } catch (_) {
+      shown = const [];
+    }
+
+    return NotificationDiagnostics(
+      enabled: enabled,
+      channelLevel: level,
+      canScheduleExact: exact,
+      shownIds: shown,
+    );
+  }
+
+  @override
   Future<List<PendingNotification>> pending() async => [
     for (final p in await _plugin.pendingNotificationRequests())
       PendingNotification(p.id, p.payload),

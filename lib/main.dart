@@ -13,6 +13,7 @@ import 'data/providers.dart';
 import 'features/reminders/plugin_scheduler.dart';
 import 'features/reminders/reminder_actions.dart';
 import 'features/reminders/reminder_providers.dart';
+import 'features/reminders/system_settings.dart';
 import 'features/screen_time/screen_time_providers.dart';
 import 'features/screen_time/usage_source.dart';
 
@@ -61,6 +62,7 @@ Future<void> main() async {
     overrides: [
       notificationSchedulerProvider.overrideWithValue(scheduler),
       usageSourceProvider.overrideWithValue(AndroidUsageSource()),
+      systemSettingsProvider.overrideWithValue(AndroidSystemSettings()),
       syncSetupIssueProvider.overrideWithValue(setupIssue),
       if (auth != null) authServiceProvider.overrideWithValue(auth),
       if (remote != null) remoteStoreProvider.overrideWithValue(remote),

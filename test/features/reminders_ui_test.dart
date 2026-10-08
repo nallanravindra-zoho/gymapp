@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wellbeing/core/time/app_clock.dart';
 import 'package:wellbeing/data/repositories/habit_repository.dart';
@@ -113,30 +114,71 @@ void main() {
     expect(find.text('Not allowed'), findsOneWidget);
   });
 
-  appTest('Send test now shows a notification and says so', (tester, db) async {
+  Future<void> tapTest(WidgetTester tester, String label) async {
+    await tester.ensureVisible(find.text(label));
+    await tester.tap(find.text(label));
+    await tester.pumpAndSettle();
+  }
+
+  appTest('Send test now: the phone accepted it', (tester, db) async {
     testScheduler.permitted = true;
     await openReminders(tester);
-    await tester.ensureVisible(find.text('Send test now'));
-    await tester.tap(find.text('Send test now'));
-    await tester.pumpAndSettle();
+    await tapTest(tester, 'Send test now');
 
     expect(testScheduler.shown.single.title, 'Test reminder.');
     expect(
-      find.text('Test reminder sent. Check your notifications.'),
+      find.textContaining('The phone accepted the test notification'),
+      findsOneWidget,
+    );
+    // Said in the message, and again in the settings hint on the screen.
+    expect(find.textContaining('allow banners and sound'), findsWidgets);
+  });
+
+  appTest('Send test now: the phone did not show it', (tester, db) async {
+    testScheduler.permitted = true;
+    testScheduler.phoneHidesNotifications = true;
+    await openReminders(tester);
+    await tapTest(tester, 'Send test now');
+    expect(
+      find.textContaining('The phone did not show the test notification'),
       findsOneWidget,
     );
   });
 
-  appTest('Test in 1 minute schedules it and says when', (tester, db) async {
+  appTest('Send test now: a failure shows its reason', (tester, db) async {
+    testScheduler.permitted = true;
+    testScheduler.showError = Exception('channel blocked');
+    await openReminders(tester);
+    await tapTest(tester, 'Send test now');
+    expect(find.textContaining('Could not send the test:'), findsOneWidget);
+    expect(find.textContaining('channel blocked'), findsOneWidget);
+  });
+
+  appTest('Test in 1 minute: registered, with the honest caveat', (
+    tester,
+    db,
+  ) async {
     testScheduler.permitted = true;
     await openReminders(tester);
-    await tester.ensureVisible(find.text('Test in 1 minute'));
-    await tester.tap(find.text('Test in 1 minute'));
-    await tester.pumpAndSettle();
+    await tapTest(tester, 'Test in 1 minute');
 
     expect(testScheduler.testScheduled, isNotNull);
-    expect(find.textContaining('Test reminder set for'), findsOneWidget);
+    expect(find.textContaining('Test set for'), findsOneWidget);
     expect(find.textContaining('Close the app and wait'), findsOneWidget);
+    expect(find.textContaining('a few minutes late'), findsOneWidget);
+  });
+
+  appTest('Test in 1 minute: not registered points to battery settings', (
+    tester,
+    db,
+  ) async {
+    testScheduler.permitted = true;
+    await openReminders(tester);
+    // The phone refuses the alarm.
+    testScheduler.scheduleError = Exception('alarm refused');
+    await tapTest(tester, 'Test in 1 minute');
+    expect(find.textContaining('Could not send the test:'), findsOneWidget);
+    expect(find.textContaining('alarm refused'), findsOneWidget);
   });
 
   appTest('a test without permission asks for permission first', (
@@ -144,16 +186,85 @@ void main() {
     db,
   ) async {
     await openReminders(tester);
-    await tester.ensureVisible(find.text('Send test now'));
-    await tester.tap(find.text('Send test now'));
-    await tester.pumpAndSettle();
+    await tapTest(tester, 'Send test now');
     expect(find.text('Allow notifications first.'), findsOneWidget);
     expect(testScheduler.shown, isEmpty);
   });
 
+  appTest('shows how the phone treats the reminder channel', (
+    tester,
+    db,
+  ) async {
+    testScheduler.permitted = true;
+    testScheduler.channelLevel = 'Low';
+    await openReminders(tester);
+    expect(find.text('Alert level'), findsOneWidget);
+    expect(find.text('Low'), findsOneWidget);
+  });
+
+  appTest('shows whether battery saving may stop reminders', (
+    tester,
+    db,
+  ) async {
+    testScheduler.permitted = true;
+    testSystem.unrestricted = false;
+    await openReminders(tester);
+    expect(find.text('Background use'), findsOneWidget);
+    expect(find.text('Limited'), findsOneWidget);
+  });
+
+  appTest('background use is hidden when the phone cannot say', (
+    tester,
+    db,
+  ) async {
+    testScheduler.permitted = true;
+    testSystem.unrestricted = null;
+    await openReminders(tester);
+    expect(find.text('Background use'), findsNothing);
+  });
+
+  appTest('a scheduling problem is shown on the screen', (tester, db) async {
+    testScheduler.permitted = true;
+    testScheduler.scheduleError = Exception('alarm refused');
+    await addHabitWithReminders(db);
+    await tester.pumpAndSettle();
+    await openReminders(tester);
+    expect(find.textContaining('Last problem:'), findsOneWidget);
+    expect(find.textContaining('alarm refused'), findsOneWidget);
+  });
+
+  appTest('the settings buttons open the phone\'s own pages', (
+    tester,
+    db,
+  ) async {
+    await openReminders(tester);
+    final list = find.byType(Scrollable).first;
+
+    await tester.scrollUntilVisible(
+      find.text('Notification settings'),
+      200,
+      scrollable: list,
+    );
+    await tester.tap(find.text('Notification settings'));
+    await tester.pumpAndSettle();
+    expect(testSystem.notificationsOpened, 1);
+
+    await tester.scrollUntilVisible(
+      find.text('Battery settings'),
+      200,
+      scrollable: list,
+    );
+    await tester.tap(find.text('Battery settings'));
+    await tester.pumpAndSettle();
+    expect(testSystem.batteryOpened, 1);
+  });
+
   test('reminders copy has no exclamation marks', () {
     const copy = [
-      'Test reminder sent. Check your notifications.',
+      'The phone accepted the test notification. If you do not see it, open Notification settings and allow banners and sound.',
+      'The phone did not show the test notification. Open Notification settings and check that this app is allowed.',
+      'Test set for 2:31 PM. Close the app and wait. Android can deliver it a few minutes late.',
+      'The phone did not register the test. Open Battery settings and allow background activity.',
       'Allow notifications first.',
       'No habit has reminders turned on. Open a habit and switch on Reminders.',
       'Reminders are planned but not set up on this phone yet. Pull down to refresh.',

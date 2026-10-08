@@ -34,6 +34,29 @@ class PendingNotification {
   final String? payload;
 }
 
+/// What the phone says about this app's notifications.
+class NotificationDiagnostics {
+  const NotificationDiagnostics({
+    required this.enabled,
+    this.channelLevel,
+    this.canScheduleExact,
+    this.shownIds = const [],
+  });
+
+  /// Notifications are allowed for the app.
+  final bool enabled;
+
+  /// How loudly the phone treats the reminder channel: `High`, `Default`,
+  /// `Low`, `Muted`, or null when the channel does not exist yet.
+  final String? channelLevel;
+
+  /// Whether exact alarms are permitted (informational only).
+  final bool? canScheduleExact;
+
+  /// Ids of the notifications currently showing in the shade.
+  final List<int> shownIds;
+}
+
 /// Everything the app needs from the platform's notification system, so the
 /// scheduling rules can be tested without a device.
 abstract class NotificationScheduler {
@@ -52,6 +75,9 @@ abstract class NotificationScheduler {
   /// Shows a notification immediately.
   Future<void> show(ScheduledNotification notification);
 
+  /// Asks the phone how it is treating this app's notifications.
+  Future<NotificationDiagnostics> diagnose();
+
   Future<List<PendingNotification>> pending();
 }
 
@@ -69,6 +95,9 @@ class NoopNotificationScheduler implements NotificationScheduler {
   Future<void> schedule(ScheduledNotification notification) async {}
   @override
   Future<void> show(ScheduledNotification notification) async {}
+  @override
+  Future<NotificationDiagnostics> diagnose() async =>
+      const NotificationDiagnostics(enabled: false);
   @override
   Future<List<PendingNotification>> pending() async => const [];
 }
@@ -104,14 +133,41 @@ class FakeNotificationScheduler implements NotificationScheduler {
   @override
   Future<void> cancel(int id) async => scheduled.remove(id);
 
+  /// Make [schedule] fail, to test error reporting.
+  Object? scheduleError;
+
   @override
-  Future<void> schedule(ScheduledNotification n) async => scheduled[n.id] = n;
+  Future<void> schedule(ScheduledNotification n) async {
+    if (scheduleError != null) throw scheduleError!;
+    scheduled[n.id] = n;
+  }
 
   /// Notifications shown immediately, in order.
   final List<ScheduledNotification> shown = [];
 
   @override
-  Future<void> show(ScheduledNotification n) async => shown.add(n);
+  Future<void> show(ScheduledNotification n) async {
+    if (showError != null) throw showError!;
+    shown.add(n);
+  }
+
+  /// Make [show] fail, to test error reporting.
+  Object? showError;
+
+  /// Pretend the phone swallows what is shown (as some skins do).
+  bool phoneHidesNotifications = false;
+
+  String? channelLevel = 'Default';
+
+  @override
+  Future<NotificationDiagnostics> diagnose() async => NotificationDiagnostics(
+    enabled: permitted,
+    channelLevel: channelLevel,
+    canScheduleExact: false,
+    shownIds: phoneHidesNotifications
+        ? const []
+        : [for (final n in shown) n.id],
+  );
 
   @override
   Future<List<PendingNotification>> pending() async => [

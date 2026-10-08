@@ -21,6 +21,10 @@ class ReminderService {
   final AppClock clock;
   final NotificationScheduler scheduler;
 
+  /// Why the last attempt to schedule failed, or null if it did not. Shown on
+  /// the Reminders screen so a problem is not silent.
+  String? lastError;
+
   /// Works out which reminders should exist right now, from the stored
   /// habits and today's progress.
   Future<_Plan> _plan() async {
@@ -91,18 +95,23 @@ class ReminderService {
       }
     }
 
-    for (var i = 0; i < plan.planned.length; i++) {
-      final r = plan.planned[i];
-      final text = reminderText(r);
-      await scheduler.schedule(
-        ScheduledNotification(
-          id: plannedIdBase + i,
-          at: r.at,
-          title: text.title,
-          body: text.body,
-          payload: ReminderPayload.fromPlanned(r).encode(),
-        ),
-      );
+    try {
+      for (var i = 0; i < plan.planned.length; i++) {
+        final r = plan.planned[i];
+        final text = reminderText(r);
+        await scheduler.schedule(
+          ScheduledNotification(
+            id: plannedIdBase + i,
+            at: r.at,
+            title: text.title,
+            body: text.body,
+            payload: ReminderPayload.fromPlanned(r).encode(),
+          ),
+        );
+      }
+      lastError = null;
+    } catch (e) {
+      lastError = _short(e);
     }
   }
 
@@ -111,6 +120,7 @@ class ReminderService {
   Future<UpcomingReminders> upcoming({int limit = 10}) async {
     final plan = await _plan();
     final permitted = await scheduler.hasPermission();
+    final diagnostics = await scheduler.diagnose();
     final onPhone = [
       for (final p in await scheduler.pending())
         if (p.id >= plannedIdBase && p.id < snoozeIdBase) p,
@@ -123,14 +133,17 @@ class ReminderService {
       enabledHabits: plan.enabledHabits,
       quietStart: plan.quietStart,
       quietEnd: plan.quietEnd,
+      diagnostics: diagnostics,
+      problem: lastError,
     );
   }
 
   /// Sends a test reminder, either now or after [delay], through the same
-  /// path real reminders use. Returns when it will appear, or null without
-  /// notification permission.
-  Future<DateTime?> sendTest({Duration delay = Duration.zero}) async {
-    if (!await scheduler.hasPermission()) return null;
+  /// path real reminders use, then asks the phone whether it took it.
+  Future<TestResult> sendTest({Duration delay = Duration.zero}) async {
+    if (!await scheduler.hasPermission()) {
+      return const TestResult.noPermission();
+    }
     final at = clock.now().toLocal().add(delay);
     final test = ScheduledNotification(
       id: testNotificationId,
@@ -146,12 +159,20 @@ class ReminderService {
         snoozeCount: 0,
       ).encode(),
     );
-    if (delay == Duration.zero) {
-      await scheduler.show(test);
-    } else {
+    try {
+      if (delay == Duration.zero) {
+        await scheduler.show(test);
+        final d = await scheduler.diagnose();
+        return TestResult(at: at, confirmed: d.shownIds.contains(test.id));
+      }
       await scheduler.schedule(test);
+      final registered = (await scheduler.pending()).any(
+        (p) => p.id == test.id,
+      );
+      return TestResult(at: at, confirmed: registered);
+    } catch (e) {
+      return TestResult.failed(_short(e));
     }
-    return at;
   }
 
   /// Ids of habits whose daily target is already met on [localDate].
@@ -186,6 +207,39 @@ class _Plan {
   final int quietEnd;
 }
 
+String _short(Object e) {
+  final text = e.toString().replaceAll(RegExp(r'\s+'), ' ');
+  return text.length > 140 ? '${text.substring(0, 140)}...' : text;
+}
+
+/// What happened when a test reminder was sent.
+class TestResult {
+  const TestResult({required this.at, required this.confirmed})
+    : error = null,
+      noPermissionGiven = false;
+
+  const TestResult.noPermission()
+    : at = null,
+      confirmed = false,
+      error = null,
+      noPermissionGiven = true;
+
+  const TestResult.failed(this.error)
+    : at = null,
+      confirmed = false,
+      noPermissionGiven = false;
+
+  /// When it should appear.
+  final DateTime? at;
+
+  /// For a test shown now: the phone lists it as showing. For a scheduled
+  /// test: the phone has the alarm registered.
+  final bool confirmed;
+
+  final String? error;
+  final bool noPermissionGiven;
+}
+
 /// A snapshot for the Reminders screen.
 class UpcomingReminders {
   const UpcomingReminders({
@@ -196,6 +250,8 @@ class UpcomingReminders {
     required this.enabledHabits,
     required this.quietStart,
     required this.quietEnd,
+    required this.diagnostics,
+    required this.problem,
   });
 
   /// The next reminders in time order.
@@ -215,4 +271,10 @@ class UpcomingReminders {
   /// Quiet hours, as minutes after midnight.
   final int quietStart;
   final int quietEnd;
+
+  /// What the phone says about this app's notifications.
+  final NotificationDiagnostics diagnostics;
+
+  /// Why the last scheduling attempt failed, if it did.
+  final String? problem;
 }

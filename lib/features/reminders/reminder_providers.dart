@@ -5,11 +5,23 @@ import '../habits/habit_providers.dart';
 import '../streaks/streak_providers.dart';
 import 'notification_scheduler.dart';
 import 'reminder_service.dart';
+import 'system_settings.dart';
 
 /// Overridden with the Android implementation in main(); does nothing in
 /// tests unless they supply a fake.
 final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (_) => NoopNotificationScheduler(),
+);
+
+/// Overridden with the Android implementation in main().
+final systemSettingsProvider = Provider<SystemSettings>(
+  (_) => NoopSystemSettings(),
+);
+
+/// Whether the app may run in the background despite battery saving.
+/// True, false, or null when the phone cannot say.
+final batteryUnrestrictedProvider = FutureProvider.autoDispose<bool?>(
+  (ref) => ref.watch(systemSettingsProvider).isUnrestrictedByBattery(),
 );
 
 final reminderServiceProvider = Provider(

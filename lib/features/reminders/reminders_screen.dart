@@ -51,18 +51,34 @@ class RemindersScreen extends ConsumerWidget {
     WidgetRef ref, {
     required Duration delay,
   }) async {
-    final at = await ref.read(reminderServiceProvider).sendTest(delay: delay);
+    final result = await ref
+        .read(reminderServiceProvider)
+        .sendTest(delay: delay);
     ref.invalidate(upcomingRemindersProvider);
     if (!context.mounted) return;
-    if (at == null) {
+
+    if (result.noPermissionGiven) {
       _say(context, 'Allow notifications first.');
+    } else if (result.error != null) {
+      _say(context, 'Could not send the test: ${result.error}');
     } else if (delay == Duration.zero) {
-      _say(context, 'Test reminder sent. Check your notifications.');
-    } else {
-      final when = TimeOfDay.fromDateTime(at).format(context);
       _say(
         context,
-        'Test reminder set for $when. Close the app and wait for it.',
+        result.confirmed
+            ? 'The phone accepted the test notification. If you do not see '
+                  'it, open Notification settings and allow banners and sound.'
+            : 'The phone did not show the test notification. Open '
+                  'Notification settings and check that this app is allowed.',
+      );
+    } else {
+      final when = TimeOfDay.fromDateTime(result.at!).format(context);
+      _say(
+        context,
+        result.confirmed
+            ? 'Test set for $when. Close the app and wait. Android can '
+                  'deliver it a few minutes late.'
+            : 'The phone did not register the test. Open Battery settings '
+                  'and allow background activity.',
       );
     }
   }
@@ -115,6 +131,16 @@ class RemindersScreen extends ConsumerWidget {
                             'Quiet hours',
                             '${_clock(context, u.quietStart)} to ${_clock(context, u.quietEnd)}',
                           ),
+                          if (u.diagnostics.channelLevel != null)
+                            _Line('Alert level', u.diagnostics.channelLevel!),
+                          const _BatteryLine(),
+                          if (u.problem != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Last problem: ${u.problem}',
+                              style: text.bodySmall,
+                            ),
+                          ],
                           if (!u.permitted) ...[
                             const SizedBox(height: 12),
                             FilledButton(
@@ -218,6 +244,34 @@ class RemindersScreen extends ConsumerWidget {
                   _test(context, ref, delay: const Duration(minutes: 1)),
               child: const Text('Test in 1 minute'),
             ),
+            const SizedBox(height: 24),
+            Text('Phone settings', style: text.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'If reminders do not arrive, allow banners and sound for this '
+              'app, and let it run in the background.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(kMinTapTarget),
+              ),
+              onPressed: () =>
+                  ref.read(systemSettingsProvider).openNotificationSettings(),
+              child: const Text('Notification settings'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(kMinTapTarget),
+              ),
+              onPressed: () async {
+                await ref.read(systemSettingsProvider).openBatterySettings();
+                ref.invalidate(batteryUnrestrictedProvider);
+              },
+              child: const Text('Battery settings'),
+            ),
           ],
         ),
       ),
@@ -240,4 +294,17 @@ class _Line extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Whether the phone lets the app run in the background despite battery
+/// saving. Hidden when the phone cannot say.
+class _BatteryLine extends ConsumerWidget {
+  const _BatteryLine();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unrestricted = ref.watch(batteryUnrestrictedProvider).value;
+    if (unrestricted == null) return const SizedBox.shrink();
+    return _Line('Background use', unrestricted ? 'Allowed' : 'Limited');
+  }
 }

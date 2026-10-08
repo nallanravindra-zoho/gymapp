@@ -180,27 +180,52 @@ void main() {
       expect(u.scheduledOnPhone, 0);
     });
 
-    test('a test now is shown immediately', () async {
-      final at = await service().sendTest();
-      expect(at, isNotNull);
-      expect(scheduler.shown.single.title, 'Test reminder.');
-      expect(scheduler.shown.single.id, testNotificationId);
+    test(
+      'a test now is shown immediately and confirmed by the phone',
+      () async {
+        final r = await service().sendTest();
+        expect(r.error, isNull);
+        expect(r.noPermissionGiven, isFalse);
+        expect(r.confirmed, isTrue);
+        expect(scheduler.shown.single.title, 'Test reminder.');
+        expect(scheduler.shown.single.id, testNotificationId);
+      },
+    );
+
+    test('a test the phone swallows is reported as not confirmed', () async {
+      scheduler.phoneHidesNotifications = true;
+      final r = await service().sendTest();
+      expect(r.confirmed, isFalse);
+      expect(r.error, isNull);
     });
 
-    test('a test in a minute is scheduled for a minute from now', () async {
-      final at = await service().sendTest(delay: const Duration(minutes: 1));
-      expect(at, DateTime(2026, 5, 13, 8, 1));
+    test('a failure to show is reported with its reason', () async {
+      scheduler.showError = Exception('channel blocked');
+      final r = await service().sendTest();
+      expect(r.error, contains('channel blocked'));
+      expect(r.confirmed, isFalse);
+    });
+
+    test('a test in a minute is scheduled and the alarm confirmed', () async {
+      final r = await service().sendTest(delay: const Duration(minutes: 1));
+      expect(r.at, DateTime(2026, 5, 13, 8, 1));
+      expect(r.confirmed, isTrue);
       expect(scheduler.testScheduled!.at, DateTime(2026, 5, 13, 8, 1));
       expect(scheduler.shown, isEmpty);
     });
 
+    test('a scheduled test that cannot be registered is reported', () async {
+      scheduler.scheduleError = Exception('alarm refused');
+      final r = await service().sendTest(delay: const Duration(minutes: 1));
+      expect(r.error, contains('alarm refused'));
+    });
+
     test('no test without notification permission', () async {
       scheduler.permitted = false;
-      expect(await service().sendTest(), isNull);
-      expect(
-        await service().sendTest(delay: const Duration(minutes: 1)),
-        isNull,
-      );
+      final now = await service().sendTest();
+      final later = await service().sendTest(delay: const Duration(minutes: 1));
+      expect(now.noPermissionGiven, isTrue);
+      expect(later.noPermissionGiven, isTrue);
       expect(scheduler.shown, isEmpty);
       expect(scheduler.testScheduled, isNull);
     });
@@ -212,6 +237,33 @@ void main() {
       expect(scheduler.testScheduled, isNotNull);
       expect(scheduler.snoozes, isEmpty);
       expect(scheduler.planned.length, 14);
+    });
+
+    test(
+      'a scheduling failure is kept and shown, then cleared on success',
+      () async {
+        await addHabit();
+        // One service for the whole test, as the app has.
+        final svc = service();
+        scheduler.scheduleError = Exception('alarm refused');
+        await svc.reschedule(); // must not throw
+        var u = await svc.upcoming();
+        expect(u.problem, contains('alarm refused'));
+        expect(u.scheduledOnPhone, 0);
+
+        scheduler.scheduleError = null;
+        await svc.reschedule();
+        u = await svc.upcoming();
+        expect(u.problem, isNull);
+        expect(u.scheduledOnPhone, 14);
+      },
+    );
+
+    test('the phone\'s notification state is passed through', () async {
+      scheduler.channelLevel = 'Low';
+      final u = await service().upcoming();
+      expect(u.diagnostics.channelLevel, 'Low');
+      expect(u.diagnostics.enabled, isTrue);
     });
 
     test('tapping Log or Snooze on a test does nothing', () async {
