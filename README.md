@@ -38,12 +38,13 @@ flutter test
 - `supabase`: backend schema, row-level security and its tests; setup guide in `supabase/README.md`
 - `lib/features/insights`: rule engine (spec 7.7), tips selection, weekly recap, Insights screen
 - `lib/features/account`: Google sign-in, Account screen, sync controller and triggers
+- `lib/features/groups`: groups tab, group screen (leaderboard, feed, cheers), settings, invite codes; online only, through `GroupsRemote`
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-10 of 13 done (insights, sign-in and live sync included): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time.
+Steps 1-11 of 13 done (groups included, push notifications for groups still to come): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time, insights, sign-in and sync, groups.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
@@ -64,3 +65,14 @@ Android specifics: scheduling is inexact (no exact-alarm permission), the boot r
 Android only. It needs the Usage access permission, which the user grants in system settings after an explanation screen. A small Kotlin module (`UsageReader.kt`) reads app foreground time from Android's usage events and returns only totals: the day's minutes, minutes per category, and minutes per hour. App names never reach Dart or the database. Sharing in groups is off by default.
 
 Usage data is only meaningful on a real device. Emulators have almost no usage history.
+
+## Groups
+
+Groups need an account and the second migration (`supabase/migrations/20261008000000_groups.sql`). They are read from the server when a screen opens and are not stored in the local database.
+
+- Create a group, then use *Copy invite* in group settings and send it. The other person chooses *Join with a code* on the Groups tab and pastes the whole message, the link or just the code. Links look like `wellbeing://join/CODE`; tapping a link to open the app is not wired up yet (it needs a web domain, planned for release prep).
+- A group holds up to 20 people and a person can be in up to 10 groups. The owner can make a new invite link, which stops the old one working. If the owner leaves, the longest-standing member becomes owner.
+- Each member has two switches per group, *Workouts* and *Break goals*. The server checks them every time something is read, so turning one off hides earlier items at once. Sleep and screen time are not read by anything in the groups schema; a test checks that.
+- The leaderboard is for the current Monday to Sunday week in each member's own local time. *Volume* is active minutes, *Consistency* is days with a workout or a met break goal (break goals count only for members who share breaks). Ties share a rank.
+- Feed items are created on the server when a workout, break goal or streak milestone is synced. Only activity from the last two days is posted, so signing in on a new phone does not flood a group.
+- Cheers are the only reaction. You cannot cheer your own items.

@@ -9,6 +9,8 @@ import 'core/config/app_config.dart';
 import 'data/sync/supabase_remote_store.dart';
 import 'features/account/supabase_auth_service.dart';
 import 'features/account/sync_providers.dart';
+import 'features/groups/groups_providers.dart';
+import 'features/groups/supabase_groups_remote.dart';
 import 'data/providers.dart';
 import 'features/reminders/plugin_scheduler.dart';
 import 'features/reminders/reminder_actions.dart';
@@ -41,6 +43,7 @@ Future<void> main() async {
   String? setupIssue;
   SupabaseAuthService? auth;
   SupabaseRemoteStore? remote;
+  SupabaseGroupsRemote? groups;
   if (AppConfig.isConfigured) {
     try {
       await Supabase.initialize(
@@ -52,6 +55,7 @@ Future<void> main() async {
       );
       auth = SupabaseAuthService(Supabase.instance.client);
       remote = SupabaseRemoteStore(Supabase.instance.client);
+      groups = SupabaseGroupsRemote(Supabase.instance.client);
     } catch (e) {
       debugPrint('Sync could not start: $e');
       setupIssue = e.toString();
@@ -66,6 +70,7 @@ Future<void> main() async {
       syncSetupIssueProvider.overrideWithValue(setupIssue),
       if (auth != null) authServiceProvider.overrideWithValue(auth),
       if (remote != null) remoteStoreProvider.overrideWithValue(remote),
+      if (groups != null) groupsRemoteProvider.overrideWithValue(groups),
     ],
   );
 

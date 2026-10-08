@@ -14,7 +14,7 @@ void main() {
     }
     await tester.tap(find.byIcon(Icons.group_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('No groups yet.'), findsOneWidget);
+    expect(find.text('Groups need an account'), findsOneWidget);
   });
 
   appTest('light mode resolves light tokens', (tester, db) async {
@@ -25,7 +25,7 @@ void main() {
   test('copy contains no exclamation marks', () {
     // Guard for the microcopy rule (spec 4.5); extended as screens land.
     const copy = [
-      'No groups yet.',
+      'Groups need an account',
       'No insights yet.',
       'Not available yet.',
       'Logged. 30 min yoga.',
