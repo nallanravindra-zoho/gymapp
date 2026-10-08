@@ -72,3 +72,9 @@ jobs:
           for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql tests/groups.sql; do
             psql -v ON_ERROR_STOP=1 -d wellbeing_groups -f supabase/$f
           done
+      - name: Run delete-account tests
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_delete'
+          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql migrations/20261009000000_delete_account.sql tests/delete_account.sql; do
+            psql -v ON_ERROR_STOP=1 -d wellbeing_delete -f supabase/$f
+          done

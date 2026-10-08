@@ -10,6 +10,8 @@ fully offline with no account, and syncing is added on top once you sign in.
 | `migrations/20261007000000_private_data_and_sync.sql` | The ten private per-user tables, row-level security, and the sync triggers |
 | `tests/rls_and_sync.sql` | Behaviour tests for the above, run on a real PostgreSQL |
 | `migrations/20261008000000_groups.sql` | Groups: members, feed, cheers, weekly leaderboard, invite codes, and who can see what |
+| `migrations/20261009000000_delete_account.sql` | `delete_my_account()`: a person deletes their own account and all its data |
+| `tests/delete_account.sql` | Behaviour tests for account deletion |
 | `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 

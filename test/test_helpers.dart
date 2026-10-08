@@ -15,6 +15,7 @@ import 'package:wellbeing/features/account/sync_providers.dart';
 import 'package:wellbeing/features/groups/groups_providers.dart';
 import 'package:wellbeing/features/groups/groups_remote.dart';
 import 'package:wellbeing/features/reminders/notification_scheduler.dart';
+import 'package:wellbeing/features/settings/data_export.dart';
 import 'package:wellbeing/features/reminders/reminder_providers.dart';
 import 'package:wellbeing/features/reminders/system_settings.dart';
 import 'package:wellbeing/features/screen_time/screen_time_providers.dart';
@@ -42,6 +43,9 @@ late MemorySyncStateStore testSyncState;
 
 /// The groups server for the current [appTest]: signed in as `me`, no groups.
 late FakeGroupsRemote testGroups;
+
+/// Where exports go in the current [appTest].
+late FakeExportSink testExport;
 
 /// Runs [body] against the full app on an in-memory database and a fixed
 /// clock (Wed 13 May 2026, 10:00 UTC), on a phone-sized surface.
@@ -73,6 +77,7 @@ void appTest(
     testRemote = remote ?? FakeRemoteStore();
     testSyncState = MemorySyncStateStore();
     testGroups = groups ?? FakeGroupsRemote();
+    testExport = FakeExportSink();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -84,6 +89,7 @@ void appTest(
           remoteStoreProvider.overrideWithValue(testRemote),
           syncStateProvider.overrideWithValue(testSyncState),
           groupsRemoteProvider.overrideWithValue(testGroups),
+          exportSinkProvider.overrideWithValue(testExport),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],

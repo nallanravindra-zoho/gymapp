@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../settings/settings_screen.dart';
 import 'auth_service.dart';
 import 'sync_providers.dart';
 
@@ -162,7 +163,21 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           16,
           MediaQuery.paddingOf(context).bottom + 24,
         ),
-        children: [body],
+        children: [
+          Card(
+            child: ListTile(
+              minTileHeight: kMinTapTarget + 8,
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Settings'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          body,
+        ],
       ),
     );
   }

@@ -31,6 +31,11 @@ abstract class AuthService {
   Future<SignInResult> signInWithGoogle();
 
   Future<void> signOut();
+
+  /// Deletes the account and everything stored for it on the server, then
+  /// signs out. Data on this phone is not touched. Returns false if the
+  /// server could not be reached, in which case nothing was deleted.
+  Future<bool> deleteAccount();
 }
 
 /// Used when the build is not configured, and by default in tests.
@@ -45,6 +50,8 @@ class UnavailableAuthService implements AuthService {
   Future<SignInResult> signInWithGoogle() async => SignInResult.failed;
   @override
   Future<void> signOut() async {}
+  @override
+  Future<bool> deleteAccount() async => false;
 }
 
 /// Scripted sign-in for tests.
@@ -69,6 +76,10 @@ class FakeAuthService implements AuthService {
 
   int signInCalls = 0;
   int signOutCalls = 0;
+  int deleteCalls = 0;
+
+  /// Whether the next deletion succeeds.
+  bool deleteSucceeds = true;
 
   @override
   bool get isAvailable => true;
@@ -92,5 +103,14 @@ class FakeAuthService implements AuthService {
     signOutCalls++;
     _user = null;
     _controller.add(null);
+  }
+
+  @override
+  Future<bool> deleteAccount() async {
+    deleteCalls++;
+    if (!deleteSucceeds) return false;
+    _user = null;
+    _controller.add(null);
+    return true;
   }
 }

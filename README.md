@@ -39,12 +39,13 @@ flutter test
 - `lib/features/insights`: rule engine (spec 7.7), tips selection, weekly recap, Insights screen
 - `lib/features/account`: Google sign-in, Account screen, sync controller and triggers
 - `lib/features/groups`: groups tab, group screen (leaderboard, feed, cheers), settings, invite codes; online only, through `GroupsRemote`
+- `lib/features/settings`: Settings screen (name, theme, quiet hours and limits, streak rules, day start), data export, erase, delete account
 - `lib/app`: app root and tab shell
 - `lib/features/*`: one folder per feature (filled in by later build steps)
 
 ## Status
 
-Steps 1-11 of 13 done (groups included, push notifications for groups still to come): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time, insights, sign-in and sync, groups.
+Steps 1-12 of 13 done (settings, export and account deletion included; push notifications for groups still to come): project setup, local database, workouts, week view, streaks and milestones, habits and reminders, sleep, screen time, insights, sign-in and sync, groups.
 
 The generated `*.g.dart` files are committed. After changing a table, regenerate with:
 
@@ -76,3 +77,12 @@ Groups need an account and the second migration (`supabase/migrations/2026100800
 - The leaderboard is for the current Monday to Sunday week in each member's own local time. *Volume* is active minutes, *Consistency* is days with a workout or a met break goal (break goals count only for members who share breaks). Ties share a rank.
 - Feed items are created on the server when a workout, break goal or streak milestone is synced. Only activity from the last two days is posted, so signing in on a new phone does not flood a group.
 - Cheers are the only reaction. You cannot cheer your own items.
+
+## Settings and your data
+
+Open the avatar at top right, then *Settings*.
+
+- Name, light/dark/system theme, quiet hours, the daily reminder limit, rest days per week, streak freeze and its interval, and when a new day starts. Streak and reminder changes apply straight away.
+- *Export all data* writes a JSON file of everything on the phone (timestamps in UTC); *Export workouts* writes a CSV. Both open the phone's share sheet. Spreadsheet cells that start with `=`, `+`, `-` or `@` are prefixed with an apostrophe so notes never run as formulas.
+- *Erase data on this phone* (signed out only) removes entries and settings from the phone.
+- *Delete account* (signed in) calls the `delete_my_account()` database function (`supabase/migrations/20261009000000_delete_account.sql`, run it in the SQL editor). It removes the account and everything stored for it, including group memberships; a group the person owned passes to the longest-standing member. Data on the phone stays, and signing in later with any account starts from it.

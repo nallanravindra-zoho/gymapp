@@ -60,6 +60,25 @@ class SupabaseAuthService implements AuthService {
     }
   }
 
+  @override
+  Future<bool> deleteAccount() async {
+    try {
+      await _client.rpc('delete_my_account');
+    } catch (e) {
+      debugPrint('Account deletion failed: $e');
+      return false;
+    }
+    // The account is gone, so ending the session may fail on the server.
+    // Ending it on this phone is what matters.
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {}
+    try {
+      await _google.signOut();
+    } catch (_) {}
+    return true;
+  }
+
   AccountUser? _map(User? u) {
     if (u == null) return null;
     final meta = u.userMetadata ?? const {};
