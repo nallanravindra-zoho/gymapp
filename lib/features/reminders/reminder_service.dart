@@ -21,13 +21,12 @@ class ReminderService {
   final AppClock clock;
   final NotificationScheduler scheduler;
 
-  Future<void> reschedule() async {
+  /// Works out which reminders should exist right now, from the stored
+  /// habits and today's progress.
+  Future<_Plan> _plan() async {
     final users = UserRepository(db, clock);
     final habitsRepo = HabitRepository(db, clock);
     final user = await users.ensureUser();
-
-    await scheduler.cancelPlanned();
-    if (!await scheduler.hasPermission()) return;
 
     final habits =
         await (db.select(db.habits)
@@ -40,17 +39,7 @@ class ReminderService {
               ..orderBy([(h) => OrderingTerm.asc(h.createdAt)]))
             .get();
 
-    final today = users.today(user);
-    final met = await metToday(habits, habitsRepo, today);
-
-    // Snoozes for habits that have since met their target no longer fire.
-    for (final p in await scheduler.pending()) {
-      if (p.id < snoozeIdBase) continue;
-      final payload = ReminderPayload.decode(p.payload);
-      if (payload == null || payload.habitIds.every(met.contains)) {
-        await scheduler.cancel(p.id);
-      }
-    }
+    final met = await metToday(habits, habitsRepo, users.today(user));
 
     final inputs = <HabitReminderInput>[];
     for (var i = 0; i < habits.length; i++) {
@@ -67,17 +56,43 @@ class ReminderService {
       );
     }
 
+    final quietStart = user.quietHoursStart ?? defaultQuietStart;
+    final quietEnd = user.quietHoursEnd ?? defaultQuietEnd;
     final planned = planReminders(
       habits: inputs,
       now: clock.now().toLocal(),
       metToday: met,
-      quietStart: user.quietHoursStart ?? defaultQuietStart,
-      quietEnd: user.quietHoursEnd ?? defaultQuietEnd,
+      quietStart: quietStart,
+      quietEnd: quietEnd,
       cap: user.dailyReminderCap,
     );
+    return _Plan(
+      planned: planned,
+      met: met,
+      enabledHabits: inputs.length,
+      quietStart: quietStart,
+      quietEnd: quietEnd,
+    );
+  }
 
-    for (var i = 0; i < planned.length; i++) {
-      final r = planned[i];
+  Future<void> reschedule() async {
+    await scheduler.cancelPlanned();
+    if (!await scheduler.hasPermission()) return;
+
+    final plan = await _plan();
+
+    // Snoozes for habits that have since met their target no longer fire.
+    // The test reminder is not tied to a habit and is left alone.
+    for (final p in await scheduler.pending()) {
+      if (p.id < snoozeIdBase || p.id == testNotificationId) continue;
+      final payload = ReminderPayload.decode(p.payload);
+      if (payload == null || payload.habitIds.every(plan.met.contains)) {
+        await scheduler.cancel(p.id);
+      }
+    }
+
+    for (var i = 0; i < plan.planned.length; i++) {
+      final r = plan.planned[i];
       final text = reminderText(r);
       await scheduler.schedule(
         ScheduledNotification(
@@ -89,6 +104,54 @@ class ReminderService {
         ),
       );
     }
+  }
+
+  /// What the Reminders screen shows: the next reminders, and whether they
+  /// are really set up on this phone.
+  Future<UpcomingReminders> upcoming({int limit = 10}) async {
+    final plan = await _plan();
+    final permitted = await scheduler.hasPermission();
+    final onPhone = [
+      for (final p in await scheduler.pending())
+        if (p.id >= plannedIdBase && p.id < snoozeIdBase) p,
+    ].length;
+    return UpcomingReminders(
+      next: plan.planned.take(limit).toList(),
+      totalPlanned: plan.planned.length,
+      permitted: permitted,
+      scheduledOnPhone: onPhone,
+      enabledHabits: plan.enabledHabits,
+      quietStart: plan.quietStart,
+      quietEnd: plan.quietEnd,
+    );
+  }
+
+  /// Sends a test reminder, either now or after [delay], through the same
+  /// path real reminders use. Returns when it will appear, or null without
+  /// notification permission.
+  Future<DateTime?> sendTest({Duration delay = Duration.zero}) async {
+    if (!await scheduler.hasPermission()) return null;
+    final at = clock.now().toLocal().add(delay);
+    final test = ScheduledNotification(
+      id: testNotificationId,
+      at: at,
+      title: 'Test reminder.',
+      body: 'Notifications are working.',
+      // No habits: the Log and Snooze buttons do nothing for a test.
+      payload: const ReminderPayload(
+        habitIds: [],
+        habitNames: [],
+        kinds: [],
+        priority: 0,
+        snoozeCount: 0,
+      ).encode(),
+    );
+    if (delay == Duration.zero) {
+      await scheduler.show(test);
+    } else {
+      await scheduler.schedule(test);
+    }
+    return at;
   }
 
   /// Ids of habits whose daily target is already met on [localDate].
@@ -105,4 +168,51 @@ class ReminderService {
     }
     return met;
   }
+}
+
+class _Plan {
+  const _Plan({
+    required this.planned,
+    required this.met,
+    required this.enabledHabits,
+    required this.quietStart,
+    required this.quietEnd,
+  });
+
+  final List<PlannedReminder> planned;
+  final Set<String> met;
+  final int enabledHabits;
+  final int quietStart;
+  final int quietEnd;
+}
+
+/// A snapshot for the Reminders screen.
+class UpcomingReminders {
+  const UpcomingReminders({
+    required this.next,
+    required this.totalPlanned,
+    required this.permitted,
+    required this.scheduledOnPhone,
+    required this.enabledHabits,
+    required this.quietStart,
+    required this.quietEnd,
+  });
+
+  /// The next reminders in time order.
+  final List<PlannedReminder> next;
+
+  /// How many are planned for the coming week.
+  final int totalPlanned;
+
+  final bool permitted;
+
+  /// How many of them the phone actually has scheduled right now.
+  final int scheduledOnPhone;
+
+  /// Habits with reminders switched on.
+  final int enabledHabits;
+
+  /// Quiet hours, as minutes after midnight.
+  final int quietStart;
+  final int quietEnd;
 }

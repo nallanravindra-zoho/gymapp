@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/app_database.dart';
+import '../reminders/reminders_screen.dart';
 import 'habit_defaults.dart';
 import 'habit_detail_screen.dart';
 import 'habit_providers.dart';
@@ -17,10 +18,41 @@ class HabitsScreen extends ConsumerWidget {
     final habits = ref.watch(activeHabitsProvider).value ?? const <Habit>[];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Habits and breaks')),
+      appBar: AppBar(
+        title: const Text('Habits and breaks'),
+        actions: [
+          IconButton(
+            tooltip: 'Reminders',
+            constraints: const BoxConstraints(
+              minWidth: kMinTapTarget,
+              minHeight: kMinTapTarget,
+            ),
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const RemindersScreen()),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
+          Card(
+            child: ListTile(
+              minTileHeight: kMinTapTarget + 16,
+              leading: const Icon(Icons.notifications_none_rounded),
+              title: const Text('Reminders'),
+              subtitle: const Text('See what is scheduled and send a test'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const RemindersScreen(),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
           if (habits.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),

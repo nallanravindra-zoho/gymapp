@@ -58,29 +58,42 @@ class PluginNotificationScheduler implements NotificationScheduler {
   @override
   Future<void> cancel(int id) => _plugin.cancel(id: id);
 
+  static const _details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _channelId,
+      'Habit reminders',
+      channelDescription: 'Water, stand and stretch breaks',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      actions: [
+        AndroidNotificationAction(logActionId, 'Log'),
+        AndroidNotificationAction(snoozeActionId, 'Snooze 30 min'),
+      ],
+    ),
+  );
+
   @override
   Future<void> schedule(ScheduledNotification n) {
     return _plugin.zonedSchedule(
       id: n.id,
       // The instant is what matters; UTC avoids needing the timezone database.
       scheduledDate: tz.TZDateTime.from(n.at, tz.UTC),
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          'Habit reminders',
-          channelDescription: 'Water, stand and stretch breaks',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          actions: [
-            AndroidNotificationAction(logActionId, 'Log'),
-            AndroidNotificationAction(snoozeActionId, 'Snooze 30 min'),
-          ],
-        ),
-      ),
+      notificationDetails: _details,
       // Inexact is enough for habit reminders and needs no extra permission.
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       title: n.title,
       body: n.body,
+      payload: n.payload,
+    );
+  }
+
+  @override
+  Future<void> show(ScheduledNotification n) {
+    return _plugin.show(
+      id: n.id,
+      title: n.title,
+      body: n.body,
+      notificationDetails: _details,
       payload: n.payload,
     );
   }

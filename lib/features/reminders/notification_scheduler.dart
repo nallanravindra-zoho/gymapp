@@ -7,6 +7,9 @@ import 'reminder_planner.dart';
 const plannedIdBase = 1000;
 const snoozeIdBase = 900000;
 
+/// The test reminder. Above the snooze range so rescheduling leaves it alone.
+const testNotificationId = 999999;
+
 class ScheduledNotification {
   const ScheduledNotification({
     required this.id,
@@ -46,6 +49,9 @@ abstract class NotificationScheduler {
 
   Future<void> schedule(ScheduledNotification notification);
 
+  /// Shows a notification immediately.
+  Future<void> show(ScheduledNotification notification);
+
   Future<List<PendingNotification>> pending();
 }
 
@@ -61,6 +67,8 @@ class NoopNotificationScheduler implements NotificationScheduler {
   Future<void> cancel(int id) async {}
   @override
   Future<void> schedule(ScheduledNotification notification) async {}
+  @override
+  Future<void> show(ScheduledNotification notification) async {}
   @override
   Future<List<PendingNotification>> pending() async => const [];
 }
@@ -99,6 +107,12 @@ class FakeNotificationScheduler implements NotificationScheduler {
   @override
   Future<void> schedule(ScheduledNotification n) async => scheduled[n.id] = n;
 
+  /// Notifications shown immediately, in order.
+  final List<ScheduledNotification> shown = [];
+
+  @override
+  Future<void> show(ScheduledNotification n) async => shown.add(n);
+
   @override
   Future<List<PendingNotification>> pending() async => [
     for (final n in scheduled.values) PendingNotification(n.id, n.payload),
@@ -108,8 +122,12 @@ class FakeNotificationScheduler implements NotificationScheduler {
       scheduled.values.where((n) => n.id < snoozeIdBase).toList()
         ..sort((a, b) => a.at.compareTo(b.at));
 
-  List<ScheduledNotification> get snoozes =>
-      scheduled.values.where((n) => n.id >= snoozeIdBase).toList();
+  List<ScheduledNotification> get snoozes => scheduled.values
+      .where((n) => n.id >= snoozeIdBase && n.id != testNotificationId)
+      .toList();
+
+  /// The scheduled test reminder, if one is pending.
+  ScheduledNotification? get testScheduled => scheduled[testNotificationId];
 }
 
 /// What a notification carries so its actions know what to log or snooze.

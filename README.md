@@ -55,6 +55,8 @@ dart run build_runner build
 
 Reminders are local notifications, off by default per habit. They are rebuilt every time the app opens or a habit changes, and cover the next 7 days. If the app is not opened for more than a week, reminders stop until it is. Notification access is requested when you first turn reminders on.
 
+To check them, open Today, Breaks, Manage, then Reminders: it lists the next reminders, whether notifications are allowed and how many are set up on the phone, and can send a test now or in a minute.
+
 Android specifics: scheduling is inexact (no exact-alarm permission), the boot receiver restores scheduled reminders after a restart, and the Log and Snooze buttons run in a background isolate.
 
 ## Screen time

@@ -36,3 +36,14 @@ final reminderEffectsProvider = Provider<void>((ref) {
   ref.listen(userStreamProvider, (_, _) => run());
   run();
 });
+
+/// The Reminders screen's data. Recomputed when habits, today's progress or
+/// settings change.
+final upcomingRemindersProvider = FutureProvider.autoDispose<UpcomingReminders>(
+  (ref) {
+    ref.watch(activeHabitsProvider);
+    ref.watch(todayHabitCountsProvider);
+    ref.watch(userStreamProvider);
+    return ref.watch(reminderServiceProvider).upcoming();
+  },
+);

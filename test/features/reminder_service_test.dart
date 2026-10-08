@@ -135,6 +135,107 @@ void main() {
     });
   });
 
+  group('upcoming reminders and test reminders', () {
+    test(
+      'lists the next reminders in time order with what is set up',
+      () async {
+        await addHabit(); // 10:00 and 14:00 daily; it is 08:00 on the 13th
+        await service().reschedule();
+
+        final u = await service().upcoming(limit: 3);
+        expect(u.permitted, isTrue);
+        expect(u.enabledHabits, 1);
+        expect(u.totalPlanned, 14);
+        expect(u.scheduledOnPhone, 14);
+        expect(u.next.length, 3);
+        expect(u.next.first.at, DateTime(2026, 5, 13, 10));
+        expect(u.next[1].at, DateTime(2026, 5, 13, 14));
+        expect(u.next[2].at, DateTime(2026, 5, 14, 10));
+        expect(u.quietStart, 22 * 60);
+        expect(u.quietEnd, 7 * 60);
+      },
+    );
+
+    test('shows nothing planned when no habit has reminders on', () async {
+      await addHabit(reminders: false);
+      final u = await service().upcoming();
+      expect(u.enabledHabits, 0);
+      expect(u.next, isEmpty);
+    });
+
+    test('says when notifications are not allowed', () async {
+      scheduler.permitted = false;
+      await addHabit();
+      final u = await service().upcoming();
+      expect(u.permitted, isFalse);
+      expect(u.scheduledOnPhone, 0);
+      expect(u.totalPlanned, 14); // still shows what would be sent
+    });
+
+    test('reports when the phone has fewer scheduled than planned', () async {
+      await addHabit();
+      // Nothing rescheduled yet: planned but not set up.
+      final u = await service().upcoming();
+      expect(u.totalPlanned, 14);
+      expect(u.scheduledOnPhone, 0);
+    });
+
+    test('a test now is shown immediately', () async {
+      final at = await service().sendTest();
+      expect(at, isNotNull);
+      expect(scheduler.shown.single.title, 'Test reminder.');
+      expect(scheduler.shown.single.id, testNotificationId);
+    });
+
+    test('a test in a minute is scheduled for a minute from now', () async {
+      final at = await service().sendTest(delay: const Duration(minutes: 1));
+      expect(at, DateTime(2026, 5, 13, 8, 1));
+      expect(scheduler.testScheduled!.at, DateTime(2026, 5, 13, 8, 1));
+      expect(scheduler.shown, isEmpty);
+    });
+
+    test('no test without notification permission', () async {
+      scheduler.permitted = false;
+      expect(await service().sendTest(), isNull);
+      expect(
+        await service().sendTest(delay: const Duration(minutes: 1)),
+        isNull,
+      );
+      expect(scheduler.shown, isEmpty);
+      expect(scheduler.testScheduled, isNull);
+    });
+
+    test('a pending test survives rescheduling and is not a snooze', () async {
+      await service().sendTest(delay: const Duration(minutes: 1));
+      await addHabit();
+      await service().reschedule();
+      expect(scheduler.testScheduled, isNotNull);
+      expect(scheduler.snoozes, isEmpty);
+      expect(scheduler.planned.length, 14);
+    });
+
+    test('tapping Log or Snooze on a test does nothing', () async {
+      await service().sendTest();
+      final payload = scheduler.shown.single.payload;
+      await handleReminderAction(
+        actionId: 'log',
+        payload: payload,
+        db: db,
+        clock: clock,
+        scheduler: scheduler,
+      );
+      await handleReminderAction(
+        actionId: 'snooze',
+        payload: payload,
+        db: db,
+        clock: clock,
+        scheduler: scheduler,
+      );
+      expect(await db.select(db.habitLogs).get(), isEmpty);
+      expect(scheduler.snoozes, isEmpty);
+    });
+  });
+
   group('notification actions', () {
     Future<(String, String)> setUpHabit() async {
       final id = await addHabit(target: 3);
