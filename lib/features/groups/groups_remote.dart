@@ -100,6 +100,11 @@ class FakeGroupsRemote implements GroupsRemote {
 
   String _id(String prefix) => '$prefix-${++_next}';
 
+  var _codes = 0;
+
+  /// An 8-digit code, different each time.
+  String _newCode() => (40000000 + ++_codes * 7919).toString();
+
   void _check(String call) {
     calls.add(call);
     final f = failNext;
@@ -341,7 +346,7 @@ class FakeGroupsRemote implements GroupsRemote {
     _check('rotateInvite');
     final g = _groups[groupId]!;
     if (g.ownerId != me) throw const GroupsException(GroupsProblem.notOwner);
-    final code = 'new${_id('c').replaceAll(RegExp('[^a-z0-9]'), '')}000000';
+    final code = _newCode();
     _groups[groupId] = g.copyWith(inviteCode: code);
     return code;
   }

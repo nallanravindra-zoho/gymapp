@@ -72,30 +72,32 @@ void main() {
   });
 
   group('invite codes', () {
-    test('a pasted link and a bare code give the same code', () {
-      expect(parseInviteCode('wellbeing://join/abc123def456'), 'abc123def456');
-      expect(parseInviteCode('  abc123def456  '), 'abc123def456');
-      expect(parseInviteCode('ABC123DEF456'), 'abc123def456');
-      expect(
-        parseInviteCode(
-          'Join my group "Sunday crew" in Well-Being. Paste this: '
-          'wellbeing://join/abc123def456',
-        ),
-        'abc123def456',
-        reason: 'the whole copied message works',
-      );
+    test(
+      'digits, with or without spaces and dashes, read as the same code',
+      () {
+        expect(parseInviteCode('12345678'), '12345678');
+        expect(parseInviteCode('1234 5678'), '12345678');
+        expect(parseInviteCode('  1234-5678 '), '12345678');
+        expect(parseInviteCode('00001234'), '00001234', reason: 'zeros kept');
+      },
+    );
+
+    test('a code is shown in two groups of four and reads back the same', () {
+      expect(formatInviteCode('12345678'), '1234 5678');
+      expect(formatInviteCode('00001234'), '0000 1234');
+      expect(parseInviteCode(formatInviteCode('87654321')), '87654321');
     });
 
-    test('the link made for a code reads back as that code', () {
-      expect(parseInviteCode(inviteLink('abc123def456')), 'abc123def456');
+    test('older letter-and-digit codes are still accepted', () {
+      expect(parseInviteCode('ABC123DEF456'), 'abc123def456');
     });
 
     test('nonsense is rejected', () {
       expect(parseInviteCode(''), isNull);
       expect(parseInviteCode('   '), isNull);
-      expect(parseInviteCode('abc'), isNull);
-      expect(parseInviteCode('wellbeing://join'), isNull);
+      expect(parseInviteCode('123'), isNull);
       expect(parseInviteCode('not a code!'), isNull);
+      expect(parseInviteCode('1234 5678 9'.padRight(60, '9')), isNull);
     });
   });
 

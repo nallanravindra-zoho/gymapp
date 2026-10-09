@@ -29,6 +29,7 @@ class TextPromptDialog extends StatefulWidget {
     this.initial = '',
     this.maxLength,
     this.hint,
+    this.keyboardType,
   });
 
   final String title;
@@ -37,6 +38,7 @@ class TextPromptDialog extends StatefulWidget {
   final String initial;
   final int? maxLength;
   final String? hint;
+  final TextInputType? keyboardType;
 
   @override
   State<TextPromptDialog> createState() => _TextPromptDialogState();
@@ -66,7 +68,10 @@ class _TextPromptDialogState extends State<TextPromptDialog> {
         controller: _controller,
         autofocus: true,
         maxLength: widget.maxLength,
-        textCapitalization: TextCapitalization.sentences,
+        keyboardType: widget.keyboardType,
+        textCapitalization: widget.keyboardType == null
+            ? TextCapitalization.sentences
+            : TextCapitalization.none,
         decoration: InputDecoration(
           labelText: widget.label,
           hintText: widget.hint,

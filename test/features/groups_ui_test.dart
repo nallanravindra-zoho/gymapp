@@ -26,7 +26,7 @@ FakeGroupsRemote withCrew() {
     'Sunday crew',
     id: 'g1',
     owner: 'asha',
-    code: 'crew00000001',
+    code: '11110001',
   );
   s.addMember(g.id, 'ben', 'Ben');
   s.setTotals(g.id, 'asha', 120, 4);
@@ -211,7 +211,7 @@ void main() {
         id: 'w1',
         owner: 'asha',
         includeMe: false,
-        code: 'walk00000001',
+        code: '22220001',
       );
       return s;
     }
@@ -222,7 +222,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, 'wellbeing://join/walk00000001');
+        await typeInto(tester, '2222 0001');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
 
@@ -246,7 +246,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, 'walk00000001');
+        await typeInto(tester, '22220001');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Cancel'));
@@ -300,7 +300,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, 'walk00000001');
+        await typeInto(tester, '22220001');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         testGroups.failNext = GroupsProblem.groupFull;
@@ -319,7 +319,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, 'crew00000001');
+        await typeInto(tester, '11110001');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Join Sunday crew?'), findsNothing);
@@ -508,7 +508,63 @@ void main() {
     );
 
     appTest(
-      'copy invite puts the link on the clipboard',
+      'the code is shown in groups of four and can be shared',
+      (tester, db) async {
+        await openGroup(tester, 'Sunday crew');
+        await openSettings(tester);
+        expect(
+          tester
+              .widget<SelectableText>(find.byKey(const Key('invite-code')))
+              .data,
+          '1111 0001',
+        );
+
+        await tester.tap(find.text('Share invite'));
+        await tester.pumpAndSettle();
+        final message = testShare.shared.single;
+        expect(message, contains('Sunday crew'));
+        expect(message, contains('Join with a code'));
+        expect(message, contains('1111 0001'));
+        expect(message, isNot(contains('!')));
+        expect(parseInviteCode('1111 0001'), '11110001');
+      },
+      auth: signedInAuth(),
+      groups: withCrew(),
+    );
+
+    appTest(
+      'if there is no share sheet the invite is copied instead',
+      (tester, db) async {
+        String? copied;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        testShare.fail = true;
+        await openGroup(tester, 'Sunday crew');
+        await openSettings(tester);
+        await tester.tap(find.text('Share invite'));
+        await tester.pumpAndSettle();
+        expect(copied, contains('1111 0001'));
+        expect(find.text('Invite copied.'), findsOneWidget);
+      },
+      auth: signedInAuth(),
+      groups: withCrew(),
+    );
+
+    appTest(
+      'copy code puts just the code on the clipboard',
       (tester, db) async {
         String? copied;
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -528,11 +584,10 @@ void main() {
         );
         await openGroup(tester, 'Sunday crew');
         await openSettings(tester);
-        await tester.tap(find.text('Copy invite'));
+        await tester.tap(find.text('Copy code'));
         await tester.pumpAndSettle();
-        expect(copied, contains('wellbeing://join/crew00000001'));
-        expect(parseInviteCode(copied!), 'crew00000001');
-        expect(find.text('Invite copied.'), findsOneWidget);
+        expect(copied, '1111 0001');
+        expect(find.text('Code copied.'), findsOneWidget);
       },
       auth: signedInAuth(),
       groups: withCrew(),
@@ -544,14 +599,14 @@ void main() {
         await openGroup(tester, 'Sunday crew');
         await openSettings(tester);
         expect(find.byIcon(Icons.edit_outlined), findsNothing);
-        expect(find.text('Make a new invite link'), findsNothing);
+        expect(find.text('Make a new code'), findsNothing);
       },
       auth: signedInAuth(),
       groups: withCrew(),
     );
 
     appTest(
-      'the owner can rename and make a new invite link',
+      'the owner can rename and make a new code',
       (tester, db) async {
         await openGroup(tester, 'Mine');
         await openSettings(tester);
@@ -563,17 +618,17 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Better name'), findsOneWidget);
 
-        expect(find.textContaining('mine00000001'), findsOneWidget);
-        await tester.tap(find.text('Make a new invite link'));
+        expect(find.text('3333 0001'), findsOneWidget);
+        await tester.tap(find.text('Make a new code'));
         await tester.pumpAndSettle();
         expect(find.textContaining('will stop working'), findsOneWidget);
-        await tester.tap(find.text('Make new link'));
+        await tester.tap(find.text('Make new code'));
         await tester.pumpAndSettle();
-        expect(find.textContaining('mine00000001'), findsNothing);
+        expect(find.text('3333 0001'), findsNothing);
       },
       auth: signedInAuth(),
       groups: server()
-        ..seedGroup('Mine', id: 'm1', owner: me, code: 'mine00000001'),
+        ..seedGroup('Mine', id: 'm1', owner: me, code: '33330001'),
     );
 
     appTest(
@@ -581,6 +636,12 @@ void main() {
       (tester, db) async {
         await openGroup(tester, 'Sunday crew');
         await openSettings(tester);
+        await tester.scrollUntilVisible(
+          find.text('Leave group'),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Leave group'));
         await tester.pumpAndSettle();
         expect(find.textContaining('stay on your phone'), findsOneWidget);
@@ -593,6 +654,12 @@ void main() {
           reason: 'cancel keeps you in',
         );
 
+        await tester.scrollUntilVisible(
+          find.text('Leave group'),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Leave group'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Leave'));

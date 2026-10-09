@@ -12,6 +12,8 @@ fully offline with no account, and syncing is added on top once you sign in.
 | `migrations/20261008000000_groups.sql` | Groups: members, feed, cheers, weekly leaderboard, invite codes, and who can see what |
 | `migrations/20261009000000_delete_account.sql` | `delete_my_account()`: a person deletes their own account and all its data |
 | `tests/delete_account.sql` | Behaviour tests for account deletion |
+| `migrations/20261010000000_numeric_invite_codes.sql` | Invite codes become 8 digits (existing groups get new codes) |
+| `tests/numeric_codes.sql` | Tests that old-format codes are replaced |
 | `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 

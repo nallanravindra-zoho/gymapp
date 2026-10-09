@@ -14,6 +14,7 @@ import 'package:wellbeing/features/account/auth_service.dart';
 import 'package:wellbeing/features/account/sync_providers.dart';
 import 'package:wellbeing/features/groups/groups_providers.dart';
 import 'package:wellbeing/features/groups/groups_remote.dart';
+import 'package:wellbeing/features/groups/text_share.dart';
 import 'package:wellbeing/features/reminders/notification_scheduler.dart';
 import 'package:wellbeing/features/settings/data_export.dart';
 import 'package:wellbeing/features/reminders/reminder_providers.dart';
@@ -47,6 +48,9 @@ late FakeGroupsRemote testGroups;
 /// Where exports go in the current [appTest].
 late FakeExportSink testExport;
 
+/// The share sheet in the current [appTest].
+late FakeTextSharer testShare;
+
 /// Runs [body] against the full app on an in-memory database and a fixed
 /// clock (Wed 13 May 2026, 10:00 UTC), on a phone-sized surface.
 ///
@@ -78,6 +82,7 @@ void appTest(
     testSyncState = MemorySyncStateStore();
     testGroups = groups ?? FakeGroupsRemote();
     testExport = FakeExportSink();
+    testShare = FakeTextSharer();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -90,6 +95,7 @@ void appTest(
           syncStateProvider.overrideWithValue(testSyncState),
           groupsRemoteProvider.overrideWithValue(testGroups),
           exportSinkProvider.overrideWithValue(testExport),
+          textSharerProvider.overrideWithValue(testShare),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],

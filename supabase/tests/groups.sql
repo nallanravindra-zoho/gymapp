@@ -43,7 +43,7 @@ select pg_temp.as_user(:alice);
 create temp table made as select * from create_group('  Sunday crew ');
 grant all on made to public;
 select pg_temp.assert((select name from made) = 'Sunday crew', 'name is trimmed');
-select pg_temp.assert((select length(invite_code) from made) = 12, 'invite code made');
+select pg_temp.assert((select invite_code ~ '^[0-9]{8}$' from made), 'invite code is 8 digits');
 select pg_temp.assert((select count(*) from groups) = 1, 'alice sees her group');
 select pg_temp.assert((select role from group_members where user_id = :alice) = 'owner',
   'creator is the owner');
@@ -364,6 +364,7 @@ grant all on old_code to public;
 create temp table new_code as select rotate_invite_code((select id from made)) as c;
 grant all on new_code to public;
 reset role;
+select pg_temp.assert((select c ~ '^[0-9]{8}$' from new_code), 'a rotated code is 8 digits too');
 select pg_temp.assert((select invite_code from groups) <> (select c from old_code),
   'a new code replaces the old one');
 select pg_temp.as_user(:cara);

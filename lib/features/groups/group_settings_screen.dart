@@ -8,6 +8,7 @@ import '../account/sync_providers.dart';
 import 'groups_models.dart';
 import 'groups_providers.dart';
 import 'groups_widgets.dart';
+import 'text_share.dart';
 
 /// Name, invite link, what you share with this group, and leaving.
 class GroupSettingsScreen extends ConsumerWidget {
@@ -60,24 +61,32 @@ class GroupSettingsScreen extends ConsumerWidget {
       await guarded(() => actions.rename(groupId, name));
     }
 
-    Future<void> copyLink() async {
-      await Clipboard.setData(
-        ClipboardData(
-          text:
-              'Join my group "${group.name}" in Well-Being. Open the app, go to '
-              'Groups, choose Join with a code and paste this: '
-              '${inviteLink(group.inviteCode)}',
-        ),
-      );
-      if (context.mounted) showGroupsMessage(context, 'Invite copied.');
+    final shownCode = formatInviteCode(group.inviteCode);
+    final message =
+        'Join my group "${group.name}" on Well-Being. Open the app, go to '
+        'Groups, choose Join with a code and enter: $shownCode';
+
+    Future<void> shareInvite() async {
+      try {
+        await ref.read(textSharerProvider).share(message, subject: group.name);
+      } catch (_) {
+        // No share sheet on this phone: copy instead, so the invite is not lost.
+        await Clipboard.setData(ClipboardData(text: message));
+        if (context.mounted) showGroupsMessage(context, 'Invite copied.');
+      }
     }
 
-    Future<void> newLink() async {
+    Future<void> copyCode() async {
+      await Clipboard.setData(ClipboardData(text: shownCode));
+      if (context.mounted) showGroupsMessage(context, 'Code copied.');
+    }
+
+    Future<void> newCode() async {
       final ok = await confirm(
         context,
-        title: 'Make a new invite link?',
-        body: 'The current link will stop working. Members stay in the group.',
-        action: 'Make new link',
+        title: 'Make a new code?',
+        body: 'The current code will stop working. Members stay in the group.',
+        action: 'Make new code',
       );
       if (!ok) return;
       await guarded(() => actions.rotateInvite(groupId));
@@ -124,26 +133,48 @@ class GroupSettingsScreen extends ConsumerWidget {
           Text('Invite', style: text.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'Anyone with the link can join, up to 20 members. Code: '
-            '${group.inviteCode}',
+            'Anyone with this code can join, up to 20 members. They enter it '
+            'under Groups, Join with a code.',
             style: muted,
           ),
           const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: SelectableText(
+                  shownCode,
+                  key: const Key('invite-code'),
+                  style: text.headlineMedium?.copyWith(letterSpacing: 4),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(kMinTapTarget),
+            ),
+            onPressed: shareInvite,
+            icon: const Icon(Icons.ios_share_outlined),
+            label: const Text('Share invite'),
+          ),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(kMinTapTarget),
             ),
-            onPressed: copyLink,
+            onPressed: copyCode,
             icon: const Icon(Icons.copy_outlined),
-            label: const Text('Copy invite'),
+            label: const Text('Copy code'),
           ),
           if (isOwner)
             TextButton(
               style: TextButton.styleFrom(
                 minimumSize: const Size.fromHeight(kMinTapTarget),
               ),
-              onPressed: newLink,
-              child: const Text('Make a new invite link'),
+              onPressed: newCode,
+              child: const Text('Make a new code'),
             ),
           const SizedBox(height: 16),
           Text('What you share here', style: text.titleLarge),
