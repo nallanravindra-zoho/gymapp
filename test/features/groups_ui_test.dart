@@ -626,6 +626,27 @@ void main() {
     );
 
     appTest(
+      'the code shown is read again, so a change made elsewhere is not missed',
+      (tester, db) async {
+        await openGroupsTab(tester);
+        // The code is replaced behind the app's back (another phone).
+        final fresh = await testGroups.rotateInvite('m1');
+        expect(fresh, isNot('3333'));
+        await tester.tap(find.text('Mine'));
+        await tester.pumpAndSettle();
+        await openSettings(tester);
+        expect(
+          tester
+              .widget<SelectableText>(find.byKey(const Key('invite-code')))
+              .data,
+          formatInviteCode(fresh),
+        );
+      },
+      auth: signedInAuth(),
+      groups: server()..seedGroup('Mine', id: 'm1', owner: me, code: '3333'),
+    );
+
+    appTest(
       'a member cannot rename or replace the invite',
       (tester, db) async {
         await openGroup(tester, 'Sunday crew');

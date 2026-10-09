@@ -58,11 +58,16 @@ class GroupScreen extends ConsumerWidget {
             tooltip: 'Group settings',
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => GroupSettingsScreen(groupId: groupId),
-              ),
-            ),
+            onPressed: () {
+              // The code may have changed since the list was loaded (for
+              // example from another phone), so read it again.
+              ref.invalidate(groupsListProvider);
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => GroupSettingsScreen(groupId: groupId),
+                ),
+              );
+            },
           ),
         ],
       ),
