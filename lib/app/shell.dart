@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,15 +8,12 @@ import '../features/reminders/reminder_providers.dart';
 import '../features/screen_time/screen_time_providers.dart';
 import '../features/account/sync_providers.dart';
 import '../features/groups/groups_screen.dart';
-import '../features/groups/invite_links.dart';
 import '../features/insights/insights_screen.dart';
 import '../features/streaks/celebration_host.dart';
 import '../features/streaks/streak_providers.dart';
 import '../features/today/today_screen.dart';
 import '../features/week/week_providers.dart';
 import '../features/week/week_screen.dart';
-
-const _groupsTab = 2;
 
 class _Tab {
   const _Tab(this.label, this.icon, this.selectedIcon);
@@ -47,7 +42,6 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   int _index = 0;
   void Function()? _stopListening;
-  StreamSubscription<String>? _linkSub;
 
   @override
   void initState() {
@@ -55,28 +49,12 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.addObserver(this);
     // A notification action may have written data from a background isolate.
     _stopListening = listenForActionResults(_refreshFromDatabase);
-    _listenForInvites();
-  }
-
-  /// A tapped invite link opens the Groups tab, which asks about it.
-  void _listenForInvites() {
-    final source = ref.read(inviteLinkSourceProvider);
-    void open(String? link) {
-      if (link == null || !mounted) return;
-      if (ref.read(pendingInviteProvider.notifier).offer(link)) {
-        setState(() => _index = _groupsTab);
-      }
-    }
-
-    source.initialLink().then(open, onError: (Object _) {});
-    _linkSub = source.links.listen(open);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopListening?.call();
-    _linkSub?.cancel();
     super.dispose();
   }
 

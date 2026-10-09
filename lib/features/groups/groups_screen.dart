@@ -10,7 +10,6 @@ import 'group_screen.dart';
 import 'groups_models.dart';
 import 'groups_providers.dart';
 import 'groups_widgets.dart';
-import 'invite_links.dart';
 
 /// The Groups tab: the groups you are in, and ways to create or join one.
 class GroupsScreen extends ConsumerWidget {
@@ -68,97 +67,32 @@ class _Notice extends StatelessWidget {
   }
 }
 
-class _SignedOut extends ConsumerWidget {
+class _SignedOut extends StatelessWidget {
   const _SignedOut();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final hasInvite = ref.watch(pendingInviteProvider) != null;
-    const invitedNote = 'You have an invite to a group. Sign in to join it. ';
-    return _Notice(
-      title: 'Groups need an account',
-      detail:
-          '${hasInvite ? invitedNote : ''}'
-          'Sign in to create a group or join one with an invite. Members see '
-          'only what they choose to share. Sleep and screen time are never '
-          'shared.',
-      action: FilledButton(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(kMinTapTarget),
-        ),
-        onPressed: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen())),
-        child: const Text('Sign in'),
+  Widget build(BuildContext context) => _Notice(
+    title: 'Groups need an account',
+    detail:
+        'Sign in to create a group or join one with an invite. Members see '
+        'only what they choose to share. Sleep and screen time are never '
+        'shared.',
+    action: FilledButton(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(kMinTapTarget),
       ),
-    );
-  }
-}
-
-/// Asks about an invite code and joins: shows what the group is, asks for
-/// confirmation, then opens the group. Used for pasted codes and tapped links.
-Future<void> joinWithInvite(
-  BuildContext context,
-  WidgetRef ref,
-  String code,
-) async {
-  try {
-    final remote = ref.read(groupsRemoteProvider);
-    final preview = await remote.previewInvite(code);
-    if (!context.mounted) return;
-    if (!preview.alreadyMember) {
-      final ok = await confirm(
-        context,
-        title: 'Join ${preview.name}?',
-        body:
-            '${preview.memberCount} '
-            '${preview.memberCount == 1 ? 'member' : 'members'}. '
-            'They will see the workouts and break goals you choose to '
-            'share. You can change that any time in group settings.',
-        action: 'Join',
-      );
-      if (!ok || !context.mounted) return;
-    }
-    final id = await ref.read(groupsActionsProvider).join(code);
-    if (context.mounted) _openGroup(context, id, preview.name);
-  } catch (e) {
-    if (context.mounted) showGroupsError(context, e);
-  }
-}
-
-void _openGroup(BuildContext context, String id, String name) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => GroupScreen(groupId: id, initialName: name),
+      onPressed: () => Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => const AccountScreen())),
+      child: const Text('Sign in'),
     ),
   );
 }
 
-class _GroupList extends ConsumerStatefulWidget {
+class _GroupList extends ConsumerWidget {
   const _GroupList();
 
   @override
-  ConsumerState<_GroupList> createState() => _GroupListState();
-}
-
-class _GroupListState extends ConsumerState<_GroupList> {
-  @override
-  void initState() {
-    super.initState();
-    // An invite that was tapped before sign-in, or while the app was closed,
-    // is handled as soon as the list is on screen.
-    ref.listenManual(pendingInviteProvider, (_, code) {
-      if (code == null) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final taken = ref.read(pendingInviteProvider.notifier).take();
-        if (taken != null) joinWithInvite(context, ref, taken);
-      });
-    }, fireImmediately: true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final groups = ref.watch(groupsListProvider);
     final text = Theme.of(context).textTheme;
 
@@ -175,7 +109,7 @@ class _GroupListState extends ConsumerState<_GroupList> {
       if (name == null || !context.mounted) return;
       try {
         final g = await ref.read(groupsActionsProvider).create(name);
-        if (context.mounted) _openGroup(context, g.id, g.name);
+        if (context.mounted) _open(context, g.id, g.name);
       } catch (e) {
         if (context.mounted) showGroupsError(context, e);
       }
@@ -199,7 +133,28 @@ class _GroupListState extends ConsumerState<_GroupList> {
         );
         return;
       }
-      await joinWithInvite(context, ref, code);
+      try {
+        final remote = ref.read(groupsRemoteProvider);
+        final preview = await remote.previewInvite(code);
+        if (!context.mounted) return;
+        if (!preview.alreadyMember) {
+          final ok = await confirm(
+            context,
+            title: 'Join ${preview.name}?',
+            body:
+                '${preview.memberCount} '
+                '${preview.memberCount == 1 ? 'member' : 'members'}. '
+                'They will see the workouts and break goals you choose to '
+                'share. You can change that any time in group settings.',
+            action: 'Join',
+          );
+          if (!ok || !context.mounted) return;
+        }
+        final id = await ref.read(groupsActionsProvider).join(code);
+        if (context.mounted) _open(context, id, preview.name);
+      } catch (e) {
+        if (context.mounted) showGroupsError(context, e);
+      }
     }
 
     return RefreshIndicator(
@@ -261,7 +216,7 @@ class _GroupListState extends ConsumerState<_GroupList> {
                       '${g.memberCount} ${g.memberCount == 1 ? 'member' : 'members'}',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openGroup(context, g.id, g.name),
+                    onTap: () => _open(context, g.id, g.name),
                   ),
                 ),
             ],
@@ -283,6 +238,14 @@ class _GroupListState extends ConsumerState<_GroupList> {
             ],
           },
         ],
+      ),
+    );
+  }
+
+  void _open(BuildContext context, String id, String name) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GroupScreen(groupId: id, initialName: name),
       ),
     );
   }

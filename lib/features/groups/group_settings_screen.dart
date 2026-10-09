@@ -64,10 +64,9 @@ class GroupSettingsScreen extends ConsumerWidget {
       await Clipboard.setData(
         ClipboardData(
           text:
-              'Join my group "${group.name}" in Well-Being. Tap the link to '
-              'open the app and join: ${inviteLink(group.inviteCode)}\n'
-              'If the link does not open, go to Groups, choose Join with a '
-              'code and paste it.',
+              'Join my group "${group.name}" in Well-Being. Open the app, go to '
+              'Groups, choose Join with a code and paste this: '
+              '${inviteLink(group.inviteCode)}',
         ),
       );
       if (context.mounted) showGroupsMessage(context, 'Invite copied.');
