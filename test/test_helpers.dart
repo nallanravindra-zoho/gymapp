@@ -14,6 +14,7 @@ import 'package:wellbeing/features/account/auth_service.dart';
 import 'package:wellbeing/features/account/sync_providers.dart';
 import 'package:wellbeing/features/groups/groups_providers.dart';
 import 'package:wellbeing/features/groups/groups_remote.dart';
+import 'package:wellbeing/features/groups/invite_links.dart';
 import 'package:wellbeing/features/reminders/notification_scheduler.dart';
 import 'package:wellbeing/features/settings/data_export.dart';
 import 'package:wellbeing/features/reminders/reminder_providers.dart';
@@ -47,6 +48,10 @@ late FakeGroupsRemote testGroups;
 /// Where exports go in the current [appTest].
 late FakeExportSink testExport;
 
+/// Invite links reaching the current [appTest]; `startLink` is the link the
+/// app was started with, if any.
+late FakeInviteLinkSource testLinks;
+
 /// Runs [body] against the full app on an in-memory database and a fixed
 /// clock (Wed 13 May 2026, 10:00 UTC), on a phone-sized surface.
 ///
@@ -61,6 +66,7 @@ void appTest(
   String? setupIssue,
   FakeRemoteStore? remote,
   FakeGroupsRemote? groups,
+  String? startLink,
 }) {
   testWidgets(name, (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -78,6 +84,7 @@ void appTest(
     testSyncState = MemorySyncStateStore();
     testGroups = groups ?? FakeGroupsRemote();
     testExport = FakeExportSink();
+    testLinks = FakeInviteLinkSource(initial: startLink);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -90,6 +97,7 @@ void appTest(
           syncStateProvider.overrideWithValue(testSyncState),
           groupsRemoteProvider.overrideWithValue(testGroups),
           exportSinkProvider.overrideWithValue(testExport),
+          inviteLinkSourceProvider.overrideWithValue(testLinks),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],

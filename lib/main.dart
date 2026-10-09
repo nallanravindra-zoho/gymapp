@@ -10,6 +10,7 @@ import 'data/sync/supabase_remote_store.dart';
 import 'features/account/supabase_auth_service.dart';
 import 'features/account/sync_providers.dart';
 import 'features/groups/groups_providers.dart';
+import 'features/groups/invite_links.dart';
 import 'features/groups/supabase_groups_remote.dart';
 import 'data/providers.dart';
 import 'features/reminders/plugin_scheduler.dart';
@@ -67,6 +68,7 @@ Future<void> main() async {
       notificationSchedulerProvider.overrideWithValue(scheduler),
       usageSourceProvider.overrideWithValue(AndroidUsageSource()),
       systemSettingsProvider.overrideWithValue(AndroidSystemSettings()),
+      inviteLinkSourceProvider.overrideWithValue(AndroidInviteLinkSource()),
       syncSetupIssueProvider.overrideWithValue(setupIssue),
       if (auth != null) authServiceProvider.overrideWithValue(auth),
       if (remote != null) remoteStoreProvider.overrideWithValue(remote),

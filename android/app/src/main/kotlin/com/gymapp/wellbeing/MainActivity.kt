@@ -14,6 +14,9 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
+    private var linkChannel: MethodChannel? = null
+    private var initialLinkTaken = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -46,6 +49,25 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // Invite links (wellbeing://join/CODE) that open the app. A link that
+        // started the app is read once by Dart; links that arrive while it is
+        // running are pushed to Dart.
+        linkChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LINK_CHANNEL).also {
+            it.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "initialLink" -> {
+                        if (initialLinkTaken) {
+                            result.success(null)
+                        } else {
+                            initialLinkTaken = true
+                            result.success(inviteLinkIn(intent))
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, USAGE_CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -81,6 +103,22 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        inviteLinkIn(intent)?.let { linkChannel?.invokeMethod("link", it) }
+    }
+
+    /** The wellbeing:// link this intent carries, if it carries one. */
+    private fun inviteLinkIn(intent: Intent?): String? {
+        val data = intent?.data ?: return null
+        return if (Intent.ACTION_VIEW == intent.action && data.scheme == "wellbeing") {
+            data.toString()
+        } else {
+            null
+        }
     }
 
     private fun openSettings(action: String, data: Uri? = null) {
@@ -122,5 +160,6 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val USAGE_CHANNEL = "wellbeing/usage"
         private const val SYSTEM_CHANNEL = "wellbeing/system"
+        private const val LINK_CHANNEL = "wellbeing/links"
     }
 }
