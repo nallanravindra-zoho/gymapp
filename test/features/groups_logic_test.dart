@@ -95,8 +95,9 @@ void main() {
     test('nonsense is rejected', () {
       expect(parseInviteCode(''), isNull);
       expect(parseInviteCode('   '), isNull);
-      expect(parseInviteCode('123'), isNull);
+      expect(parseInviteCode('123'), isNull, reason: 'too short');
       expect(parseInviteCode('not a code!'), isNull);
+      expect(parseInviteCode('12'), isNull);
       expect(parseInviteCode('1234 5678 9'.padRight(60, '9')), isNull);
     });
   });
@@ -213,6 +214,10 @@ void main() {
       expect(
         problemForServerMessage('too_many_groups'),
         GroupsProblem.tooManyGroups,
+      );
+      expect(
+        problemForServerMessage('too_many_attempts'),
+        GroupsProblem.tooManyAttempts,
       );
       expect(problemForServerMessage('not_owner'), GroupsProblem.notOwner);
       expect(

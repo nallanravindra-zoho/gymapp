@@ -43,7 +43,7 @@ select pg_temp.as_user(:alice);
 create temp table made as select * from create_group('  Sunday crew ');
 grant all on made to public;
 select pg_temp.assert((select name from made) = 'Sunday crew', 'name is trimmed');
-select pg_temp.assert((select invite_code ~ '^[0-9]{8}$' from made), 'invite code is 8 digits');
+select pg_temp.assert((select invite_code ~ '^[0-9]{4}$' from made), 'invite code is 4 digits');
 select pg_temp.assert((select count(*) from groups) = 1, 'alice sees her group');
 select pg_temp.assert((select role from group_members where user_id = :alice) = 'owner',
   'creator is the owner');
@@ -79,13 +79,7 @@ select pg_temp.assert(
   (select count(*) from group_leaderboard((select id from made), '2026-05-11')) = 0,
   'a non-member gets no leaderboard');
 
-do $$ begin
-  begin perform join_group('nope'); raise exception 'FAILED: bad code accepted';
-  exception when raise_exception then
-    if sqlerrm like 'FAILED%' then raise; end if;
-    if sqlerrm <> 'invite_not_found' then raise exception 'FAILED: wrong error %', sqlerrm; end if;
-  end;
-end $$;
+select pg_temp.assert(join_group('nope') is null, 'a wrong code joins nothing');
 
 select pg_temp.assert((select name from group_preview((select invite_code from made))) = 'Sunday crew',
   'preview shows the name before joining');
@@ -364,16 +358,11 @@ grant all on old_code to public;
 create temp table new_code as select rotate_invite_code((select id from made)) as c;
 grant all on new_code to public;
 reset role;
-select pg_temp.assert((select c ~ '^[0-9]{8}$' from new_code), 'a rotated code is 8 digits too');
+select pg_temp.assert((select c ~ '^[0-9]{4}$' from new_code), 'a rotated code is 4 digits too');
 select pg_temp.assert((select invite_code from groups) <> (select c from old_code),
   'a new code replaces the old one');
 select pg_temp.as_user(:cara);
-do $$ begin
-  begin perform join_group((select c from old_code)); raise exception 'FAILED: old code still works';
-  exception when raise_exception then
-    if sqlerrm like 'FAILED%' then raise; end if;
-  end;
-end $$;
+select pg_temp.assert(join_group((select c from old_code)) is null, 'the old code no longer works');
 reset role;
 
 -- 8. Leaving, ownership and size limits --------------------------------------------------

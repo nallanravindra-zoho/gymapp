@@ -102,8 +102,20 @@ class FakeGroupsRemote implements GroupsRemote {
 
   var _codes = 0;
 
-  /// An 8-digit code, different each time.
-  String _newCode() => (40000000 + ++_codes * 7919).toString();
+  /// A 4-digit code, different each time.
+  String _newCode() => (4000 + ++_codes * 37).toString();
+
+  var _wrongCodes = 0;
+
+  /// Like the server: 5 wrong codes lock out further tries.
+  void _checkGuessing() {
+    if (_wrongCodes >= 5) {
+      throw const GroupsException(GroupsProblem.tooManyAttempts);
+    }
+  }
+
+  /// Lets the guessing limit lapse, as it does after 15 minutes.
+  void forgetWrongCodes() => _wrongCodes = 0;
 
   void _check(String call) {
     calls.add(call);
@@ -237,8 +249,12 @@ class FakeGroupsRemote implements GroupsRemote {
   @override
   Future<InvitePreview> previewInvite(String code) async {
     _check('previewInvite');
+    _checkGuessing();
     final g = _byCode(code);
-    if (g == null) throw const GroupsException(GroupsProblem.inviteNotFound);
+    if (g == null) {
+      _wrongCodes++;
+      throw const GroupsException(GroupsProblem.inviteNotFound);
+    }
     return InvitePreview(
       name: g.name,
       memberCount: _members[g.id]!.length,
@@ -249,8 +265,12 @@ class FakeGroupsRemote implements GroupsRemote {
   @override
   Future<String> joinGroup(String code) async {
     _check('joinGroup');
+    _checkGuessing();
     final g = _byCode(code);
-    if (g == null) throw const GroupsException(GroupsProblem.inviteNotFound);
+    if (g == null) {
+      _wrongCodes++;
+      throw const GroupsException(GroupsProblem.inviteNotFound);
+    }
     if (isMember(g.id)) return g.id;
     if (_members[g.id]!.length >= 20) {
       throw const GroupsException(GroupsProblem.groupFull);

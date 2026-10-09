@@ -99,7 +99,7 @@ jobs:
       - name: Run groups tests
         run: |
           psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_groups'
-          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql migrations/20261010000000_numeric_invite_codes.sql tests/groups.sql; do
+          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql migrations/20261010000000_numeric_invite_codes.sql migrations/20261011000000_four_digit_codes.sql tests/groups.sql; do
             psql -v ON_ERROR_STOP=1 -d wellbeing_groups -f supabase/$f
           done
       - name: Run delete-account tests
@@ -115,3 +115,10 @@ jobs:
             psql -v ON_ERROR_STOP=1 -d wellbeing_codes -f supabase/$f
           done
           psql -v ON_ERROR_STOP=1 -d wellbeing_codes -f supabase/tests/numeric_codes.sql
+      - name: Run four-digit-code tests
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_four'
+          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql; do
+            psql -v ON_ERROR_STOP=1 -d wellbeing_four -f supabase/$f
+          done
+          psql -v ON_ERROR_STOP=1 -d wellbeing_four -f supabase/tests/four_digit_codes.sql

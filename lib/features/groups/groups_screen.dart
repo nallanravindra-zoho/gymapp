@@ -121,7 +121,7 @@ class _GroupList extends ConsumerWidget {
         builder: (_) => const TextPromptDialog(
           title: 'Join a group',
           label: 'Invite code',
-          hint: '8 digits',
+          hint: '4 digits',
           action: 'Continue',
           keyboardType: TextInputType.number,
         ),

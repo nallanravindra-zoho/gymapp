@@ -22,12 +22,7 @@ FakeGroupsRemote server() => FakeGroupsRemote(me: me, myName: 'Divya');
 /// A group of three with some activity, as the signed-in person sees it.
 FakeGroupsRemote withCrew() {
   final s = server();
-  final g = s.seedGroup(
-    'Sunday crew',
-    id: 'g1',
-    owner: 'asha',
-    code: '11110001',
-  );
+  final g = s.seedGroup('Sunday crew', id: 'g1', owner: 'asha', code: '1111');
   s.addMember(g.id, 'ben', 'Ben');
   s.setTotals(g.id, 'asha', 120, 4);
   s.setTotals(g.id, 'ben', 45, 5);
@@ -211,7 +206,7 @@ void main() {
         id: 'w1',
         owner: 'asha',
         includeMe: false,
-        code: '22220001',
+        code: '2222',
       );
       return s;
     }
@@ -222,7 +217,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, '2222 0001');
+        await typeInto(tester, '2222');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
 
@@ -246,7 +241,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, '22220001');
+        await typeInto(tester, '2222');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Cancel'));
@@ -295,12 +290,49 @@ void main() {
     );
 
     appTest(
+      'after five wrong codes further tries are refused, then allowed again',
+      (tester, db) async {
+        await openGroupsTab(tester);
+        Future<void> tryCode(String code) async {
+          await tester.tap(find.text('Join with a code'));
+          await tester.pumpAndSettle();
+          await typeInto(tester, code);
+          await tester.tap(find.text('Continue'));
+          await tester.pumpAndSettle();
+        }
+
+        for (var i = 0; i < 5; i++) {
+          await tryCode('900$i');
+          expect(
+            find.text('That invite is not valid. Ask for a new one.'),
+            findsOneWidget,
+          );
+        }
+        // Even the right code is refused now.
+        await tryCode('2222');
+        expect(
+          find.text(
+            'Too many wrong codes. Wait about 15 minutes and try again.',
+          ),
+          findsOneWidget,
+        );
+        expect(testGroups.isMember('w1'), isFalse);
+
+        testGroups.forgetWrongCodes();
+        await tryCode('2222');
+        expect(find.text('Join Walkers?'), findsOneWidget);
+      },
+      auth: signedInAuth(),
+      groups: other(),
+    );
+
+    appTest(
       'a full group says so',
       (tester, db) async {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, '22220001');
+        await typeInto(tester, '2222');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         testGroups.failNext = GroupsProblem.groupFull;
@@ -319,7 +351,7 @@ void main() {
         await openGroupsTab(tester);
         await tester.tap(find.text('Join with a code'));
         await tester.pumpAndSettle();
-        await typeInto(tester, '11110001');
+        await typeInto(tester, '1111');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Join Sunday crew?'), findsNothing);
@@ -516,7 +548,7 @@ void main() {
           tester
               .widget<SelectableText>(find.byKey(const Key('invite-code')))
               .data,
-          '1111 0001',
+          '1111',
         );
 
         await tester.tap(find.text('Share invite'));
@@ -524,9 +556,9 @@ void main() {
         final message = testShare.shared.single;
         expect(message, contains('Sunday crew'));
         expect(message, contains('Join with a code'));
-        expect(message, contains('1111 0001'));
+        expect(message, contains('1111'));
         expect(message, isNot(contains('!')));
-        expect(parseInviteCode('1111 0001'), '11110001');
+        expect(parseInviteCode('1111'), '1111');
       },
       auth: signedInAuth(),
       groups: withCrew(),
@@ -556,7 +588,7 @@ void main() {
         await openSettings(tester);
         await tester.tap(find.text('Share invite'));
         await tester.pumpAndSettle();
-        expect(copied, contains('1111 0001'));
+        expect(copied, contains('1111'));
         expect(find.text('Invite copied.'), findsOneWidget);
       },
       auth: signedInAuth(),
@@ -586,7 +618,7 @@ void main() {
         await openSettings(tester);
         await tester.tap(find.text('Copy code'));
         await tester.pumpAndSettle();
-        expect(copied, '1111 0001');
+        expect(copied, '1111');
         expect(find.text('Code copied.'), findsOneWidget);
       },
       auth: signedInAuth(),
@@ -618,17 +650,16 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Better name'), findsOneWidget);
 
-        expect(find.text('3333 0001'), findsOneWidget);
+        expect(find.text('3333'), findsOneWidget);
         await tester.tap(find.text('Make a new code'));
         await tester.pumpAndSettle();
         expect(find.textContaining('will stop working'), findsOneWidget);
         await tester.tap(find.text('Make new code'));
         await tester.pumpAndSettle();
-        expect(find.text('3333 0001'), findsNothing);
+        expect(find.text('3333'), findsNothing);
       },
       auth: signedInAuth(),
-      groups: server()
-        ..seedGroup('Mine', id: 'm1', owner: me, code: '33330001'),
+      groups: server()..seedGroup('Mine', id: 'm1', owner: me, code: '3333'),
     );
 
     appTest(

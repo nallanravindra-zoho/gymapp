@@ -6,6 +6,7 @@ enum GroupsProblem {
   inviteNotFound,
   groupFull,
   tooManyGroups,
+  tooManyAttempts,
   notOwner,
   invalidName,
   network,
@@ -21,6 +22,8 @@ class GroupsException implements Exception {
       'That invite is not valid. Ask for a new one.',
     GroupsProblem.groupFull => 'This group is full.',
     GroupsProblem.tooManyGroups => 'You are in the maximum number of groups.',
+    GroupsProblem.tooManyAttempts =>
+      'Too many wrong codes. Wait about 15 minutes and try again.',
     GroupsProblem.notOwner => 'Only the owner can do that.',
     GroupsProblem.invalidName => 'Enter a name up to 40 characters.',
     GroupsProblem.network => 'Could not reach the server. Try again.',
@@ -158,8 +161,8 @@ List<RankedEntry> rankLeaderboard(
 
 // Invite codes -------------------------------------------------------------------
 
-/// Shows a code in groups of four, which is easier to read out: 12345678
-/// becomes "1234 5678".
+/// Shows a code in groups of four for reading out: 4821 stays "4821" and
+/// a longer older code such as 12345678 becomes "1234 5678".
 String formatInviteCode(String code) {
   final buffer = StringBuffer();
   for (var i = 0; i < code.length; i++) {
@@ -174,7 +177,7 @@ String formatInviteCode(String code) {
 /// not be a code.
 String? parseInviteCode(String input) {
   final code = input.replaceAll(RegExp(r'[\s-]'), '').toLowerCase();
-  return RegExp(r'^[a-z0-9]{6,32}$').hasMatch(code) ? code : null;
+  return RegExp(r'^[a-z0-9]{4,32}$').hasMatch(code) ? code : null;
 }
 
 // Feed text -------------------------------------------------------------------------

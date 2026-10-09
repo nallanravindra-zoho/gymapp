@@ -71,6 +71,8 @@ class SupabaseGroupsRemote implements GroupsRemote {
   @override
   Future<String> joinGroup(String code) => _run(() async {
     final id = await _client.rpc('join_group', params: {'p_code': code});
+    // A wrong code returns nothing (the server records the attempt).
+    if (id == null) throw const GroupsException(GroupsProblem.inviteNotFound);
     return id as String;
   });
 
@@ -234,6 +236,9 @@ GroupsProblem _problemFor(PostgrestException e) {
   if (text.contains('invite_not_found')) return GroupsProblem.inviteNotFound;
   if (text.contains('group_full')) return GroupsProblem.groupFull;
   if (text.contains('too_many_groups')) return GroupsProblem.tooManyGroups;
+  if (text.contains('too_many_attempts')) {
+    return GroupsProblem.tooManyAttempts;
+  }
   if (text.contains('not_owner')) return GroupsProblem.notOwner;
   if (text.contains('invalid_name')) return GroupsProblem.invalidName;
   if (text.contains('not_signed_in')) return GroupsProblem.notSignedIn;
