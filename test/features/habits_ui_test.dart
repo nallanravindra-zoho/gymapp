@@ -6,19 +6,34 @@ import 'package:wellbeing/data/repositories/habit_repository.dart';
 import 'package:wellbeing/data/repositories/user_repository.dart';
 import 'package:wellbeing/data/tables/tables.dart';
 
+import '../helpers/nav_b.dart';
 import '../test_helpers.dart';
 
-Future<void> addDefaultHabit(WidgetTester tester) async {
+/// Opens Healthy Habits from Today and starts a new habit on its Setup tab.
+Future<void> startNewHabit(WidgetTester tester) async {
+  await openHabits(tester);
+  await tester.tap(find.text('Setup'));
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Add habit'));
   await tester.pumpAndSettle();
+}
+
+/// Adds the default (water) habit; ends on the Healthy Habits screen.
+Future<void> addDefaultHabit(WidgetTester tester) async {
+  await startNewHabit(tester);
   await tester.tap(find.text('Save'));
   await tester.pumpAndSettle();
 }
 
 void main() {
   appTest('no habits shows an empty state with Add habit', (tester, db) async {
-    expect(find.text('Breaks'), findsOneWidget);
-    expect(find.text('No habits yet.'), findsOneWidget);
+    // Today offers a way in even before any habit exists.
+    expect(find.text('Add a habit to get started'), findsOneWidget);
+    await openHabits(tester);
+    expect(find.text('Healthy Habits'), findsWidgets);
+    expect(find.textContaining('No habits yet.'), findsOneWidget);
+    await tester.tap(find.text('Setup'));
+    await tester.pumpAndSettle();
     expect(find.text('Add habit'), findsOneWidget);
   });
 
@@ -28,6 +43,12 @@ void main() {
   ) async {
     await addDefaultHabit(tester);
     expect(find.text('Water'), findsOneWidget);
+    expect(find.text('6 per day, reminders off'), findsOneWidget);
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('0/6'), findsOneWidget);
+    await goBack(tester);
+    expect(find.text('Water'), findsOneWidget); // on Today too
     expect(find.text('0/6'), findsOneWidget);
 
     final habit = (await db.select(db.habits).get()).single;
@@ -42,8 +63,7 @@ void main() {
     tester,
     db,
   ) async {
-    await tester.tap(find.text('Add habit'));
-    await tester.pumpAndSettle();
+    await startNewHabit(tester);
     await tester.tap(find.text('Stand'));
     await tester.pumpAndSettle();
     expect(find.text('8'), findsOneWidget); // stand default target
@@ -63,22 +83,23 @@ void main() {
 
   appTest('tapping a habit logs one and Undo removes it', (tester, db) async {
     await addDefaultHabit(tester);
+    await tester.tap(find.text('Today')); // list tab of Healthy Habits
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Water'));
     await tester.pumpAndSettle();
-    expect(find.text('1/6'), findsOneWidget);
+    expect(find.textContaining('1/6'), findsOneWidget);
     expect(find.text('Logged. Water 1 of 6.'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
-    expect(find.text('0/6'), findsOneWidget);
+    expect(find.textContaining('0/6'), findsOneWidget);
   });
 
   appTest('turning reminders on asks for permission, then schedules', (
     tester,
     db,
   ) async {
-    await tester.tap(find.text('Add habit'));
-    await tester.pumpAndSettle();
+    await startNewHabit(tester);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     expect(find.text('Active days'), findsOneWidget);
@@ -101,8 +122,7 @@ void main() {
     tester,
     db,
   ) async {
-    await tester.tap(find.text('Add habit'));
-    await tester.pumpAndSettle();
+    await startNewHabit(tester);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
@@ -120,8 +140,7 @@ void main() {
     db,
   ) async {
     testScheduler.grantOnRequest = false;
-    await tester.tap(find.text('Add habit'));
-    await tester.pumpAndSettle();
+    await startNewHabit(tester);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
@@ -136,8 +155,7 @@ void main() {
   });
 
   appTest('set-times mode requires at least one time', (tester, db) async {
-    await tester.tap(find.text('Add habit'));
-    await tester.pumpAndSettle();
+    await startNewHabit(tester);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Set times'));
@@ -154,7 +172,9 @@ void main() {
     db,
   ) async {
     await addDefaultHabit(tester);
-    await tester.tap(find.byTooltip('Water details'));
+    await tester.tap(find.text('Setup'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Water')); // opens the habit detail
     await tester.pumpAndSettle();
 
     expect(find.text('0 of 6'), findsOneWidget);
@@ -172,14 +192,16 @@ void main() {
 
   appTest('deleting a habit removes it from Today', (tester, db) async {
     await addDefaultHabit(tester);
-    await tester.tap(find.byTooltip('Water details'));
+    await tester.tap(find.text('Setup'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Water')); // opens the habit detail
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('No habits yet.'), findsOneWidget);
+    expect(find.textContaining('No habits yet.'), findsOneWidget);
     expect((await db.select(db.habits).get()).single.deletedAt, isNotNull);
   });
 

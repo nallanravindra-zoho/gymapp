@@ -1,12 +1,20 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wellbeing/core/time/local_date.dart';
 import 'package:wellbeing/data/repositories/user_repository.dart';
 import 'package:wellbeing/data/repositories/workout_repository.dart';
 import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/core/time/app_clock.dart';
+import 'package:wellbeing/features/streaks/streak_card.dart';
 
+import '../helpers/nav_a.dart';
 import '../test_helpers.dart';
+
+/// The Today streak card's stat tile with [label] (`overall activity`, or the
+/// best workout type's lower-case name), looked at for its "N day" figure.
+Finder streakStat(String label, int days) => find.descendant(
+  of: find.widgetWithText(StreakStat, label),
+  matching: find.text('$days day'),
+);
 
 Future<void> addWorkoutOn(
   dynamic db,
@@ -27,19 +35,17 @@ Future<void> addWorkoutOn(
 }
 
 void main() {
-  appTest('no streak shows a plain empty line', (tester, db) async {
-    expect(find.text('No streak yet.'), findsOneWidget);
+  appTest('no streak shows plain zeros', (tester, db) async {
+    expect(find.text("Today's streaks"), findsOneWidget);
+    expect(streakStat('overall activity', 0), findsOneWidget);
+    expect(streakStat('workout', 0), findsOneWidget);
+    expect(find.text('Streak kept. Freeze used.'), findsNothing);
   });
 
   appTest('logging a workout starts a 1-day streak', (tester, db) async {
-    await tester.tap(find.text('Log workout'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Yoga'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    expect(find.text('1-day streak.'), findsOneWidget);
-    expect(find.text('Yoga 1-day streak.'), findsOneWidget);
+    await logToday(tester, 'Yoga');
+    expect(streakStat('overall activity', 1), findsOneWidget);
+    expect(streakStat('yoga', 1), findsOneWidget);
   });
 
   appTest('streak updates when an earlier entry is deleted', (
@@ -51,7 +57,7 @@ void main() {
       await addWorkoutOn(db, user.id, ago);
     }
     await tester.pumpAndSettle();
-    expect(find.text('3-day streak.'), findsOneWidget);
+    expect(streakStat('overall activity', 3), findsOneWidget);
 
     final middle = (await db.select(db.workouts).get()).firstWhere(
       (w) => w.localDate == '2026-05-12',
@@ -60,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
     // Freeze is on by default: it covers the one missed day, so the streak
     // is 2 (the 11th and today) rather than broken.
-    expect(find.text('2-day streak.'), findsOneWidget);
+    expect(streakStat('overall activity', 2), findsOneWidget);
     // The freeze covered yesterday, and the card says so plainly.
     expect(find.text('Streak kept. Freeze used.'), findsOneWidget);
   });
@@ -115,7 +121,7 @@ void main() {
       await addWorkoutOn(db, user.id, ago);
     }
     await tester.pumpAndSettle();
-    await tester.tap(find.text('3-day streak.'));
+    await tester.tap(find.text("Today's streaks"));
     await tester.pumpAndSettle();
 
     expect(find.text('Milestones'), findsOneWidget);
@@ -123,7 +129,8 @@ void main() {
     expect(find.text('30 days'), findsOneWidget);
     expect(find.text('100 days'), findsOneWidget);
     expect(find.text('Longest streak'), findsOneWidget);
-    expect(find.text('3 days'), findsOneWidget);
+    expect(find.text('activity streak'), findsOneWidget);
+    expect(find.text('3 days'), findsNWidgets(2)); // current and longest
     expect(find.text('90 min'), findsOneWidget);
   });
 
@@ -132,11 +139,21 @@ void main() {
     await addWorkoutOn(db, user.id, 0);
     await addWorkoutOn(db, user.id, 1);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.calendar_view_week_outlined));
-    await tester.pumpAndSettle();
+    await openWeekTab(tester);
 
     expect(find.text('Streaks'), findsOneWidget);
-    expect(find.text('Overall'), findsOneWidget);
-    expect(find.text('2 days'), findsWidgets);
+    final streaks = find.byType(WeekStreaks);
+    expect(
+      find.descendant(of: streaks, matching: find.text('Overall activity')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: streaks, matching: find.text('Yoga')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: streaks, matching: find.text('2 days')),
+      findsNWidgets(2), // overall and Yoga
+    );
   });
 }

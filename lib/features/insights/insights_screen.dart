@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../core/time/local_date.dart';
-import '../../core/widgets/avatar_button.dart';
+import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
 import '../../data/seed_tips.dart';
-import '../week/day_sheet.dart' show monthNames;
+import '../week/day_format.dart' show monthNames;
 import '../workouts/workout_providers.dart';
 import 'insight_builder.dart';
 import 'insight_rules.dart';
@@ -27,6 +27,16 @@ String _minutes(int m) {
   return r == 0 ? '$h h' : '$h h $r min';
 }
 
+Cat _insightCat(String key) => switch (key) {
+  'stretch_on_workout_days' => Cat.trophy,
+  'active_days_change' => Cat.workout,
+  'longest_gap' => Cat.neutral,
+  'water_consistency' => Cat.water,
+  'sleep_consistency' => Cat.sleep,
+  'screen_time_late' => Cat.screen,
+  _ => Cat.neutral,
+};
+
 class InsightsScreen extends ConsumerWidget {
   const InsightsScreen({super.key});
 
@@ -35,37 +45,46 @@ class InsightsScreen extends ConsumerWidget {
     final view = ref.watch(insightsViewProvider);
     final mode = ref.watch(insightWeekProvider);
     final text = Theme.of(context).textTheme;
+    final t = context.tokens;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Insights'),
-        actions: const [AvatarButton()],
+        title: const Padding(
+          padding: EdgeInsets.only(left: 20),
+          child: Text('Insights'),
+        ),
       ),
       body: view == null
           ? const SizedBox.shrink()
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                MediaQuery.paddingOf(context).bottom + 24,
+              ),
               children: [
-                SegmentedButton<InsightWeek>(
-                  segments: const [
-                    ButtonSegment(
-                      value: InsightWeek.last,
-                      label: Text('Last week'),
-                    ),
-                    ButtonSegment(
-                      value: InsightWeek.current,
-                      label: Text('This week'),
-                    ),
+                PillTabs<InsightWeek>(
+                  outlined: true,
+                  options: const {
+                    InsightWeek.last: 'Last week',
+                    InsightWeek.current: 'This week',
+                  },
+                  selected: mode,
+                  onChanged: (m) =>
+                      ref.read(insightWeekProvider.notifier).set(m),
+                ),
+                const SizedBox(height: 16),
+                _RecapCard(recap: view.recap),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline_rounded, color: t.text),
+                    const SizedBox(width: 12),
+                    Text('Your patterns', style: text.titleMedium),
                   ],
-                  selected: {mode},
-                  onSelectionChanged: (s) =>
-                      ref.read(insightWeekProvider.notifier).set(s.first),
                 ),
                 const SizedBox(height: 12),
-                _RecapCard(recap: view.recap),
-                const SizedBox(height: 20),
-                Text('Your patterns', style: text.titleLarge),
-                const SizedBox(height: 8),
                 if (view.insights.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -74,42 +93,55 @@ class InsightsScreen extends ConsumerWidget {
                     ),
                     child: Text(
                       'No insights for this week yet.',
-                      style: text.bodySmall,
+                      style: text.bodyMedium?.copyWith(color: t.textMuted),
                     ),
                   )
                 else
                   for (final i in view.insights) _InsightCard(insight: i),
                 if (view.tips.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  Text('Tips', style: text.titleLarge),
-                  const SizedBox(height: 8),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var n = 0; n < view.tips.length; n++)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Text(
-                                      '${n + 1}.',
-                                      style: text.bodySmall,
-                                    ),
-                                  ),
-                                  Expanded(child: Text(view.tips[n].text)),
-                                ],
+                  const SizedBox(height: 14),
+                  Text("This week's tips", style: text.titleMedium),
+                  const SizedBox(height: 12),
+                  for (var n = 0; n < view.tips.length; n++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: SoftCard(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: t.cat(Cat.habit).tint,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '${n + 1}',
+                                style: text.titleSmall?.copyWith(
+                                  color: t.cat(Cat.habit).icon,
+                                ),
                               ),
                             ),
-                          Text(tipFooter, style: text.bodySmall),
-                        ],
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  view.tips[n].text,
+                                  style: text.bodyMedium,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, left: 4),
+                    child: Text(tipFooter, style: text.bodySmall),
                   ),
                 ],
               ],
@@ -124,20 +156,30 @@ class _InsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(insightIcon(insight.key), color: t.accent),
-              const SizedBox(width: 12),
-              Expanded(child: Text(insightText(insight))),
-            ],
-          ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SoftCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TintedIcon(
+              icon: insightIcon(insight.key),
+              cat: _insightCat(insight.key),
+              size: 46,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  insightText(insight),
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -158,39 +200,36 @@ class _RecapCard extends ConsumerWidget {
         t.id: t,
     };
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Week summary', style: text.titleLarge),
-            Text(_range(recap.weekStart), style: text.bodySmall),
-            const SizedBox(height: 12),
-            if (recap.isEmpty)
-              Text('No workouts logged this week.', style: text.bodyMedium)
-            else
-              Wrap(
-                spacing: 24,
-                runSpacing: 12,
-                children: [
-                  _Stat(value: '${recap.activeDays}', label: 'Active days'),
-                  _Stat(
-                    value: _minutes(recap.totalMinutes),
-                    label: 'Total minutes',
-                  ),
-                  _Stat(
-                    value: types[recap.topTypeId]?.name ?? 'None',
-                    label: 'Top workout',
-                  ),
-                  _Stat(
-                    value: '${recap.longestStreak} days',
-                    label: 'Longest streak',
-                  ),
-                ],
-              ),
-          ],
-        ),
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Week summary', style: text.titleMedium),
+          Text(_range(recap.weekStart), style: text.bodySmall),
+          const SizedBox(height: 12),
+          if (recap.isEmpty)
+            Text('No workouts logged this week.', style: text.bodyMedium)
+          else
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                _Stat(value: '${recap.activeDays}', label: 'Active days'),
+                _Stat(
+                  value: _minutes(recap.totalMinutes),
+                  label: 'Total minutes',
+                ),
+                _Stat(
+                  value: types[recap.topTypeId]?.name ?? 'None',
+                  label: 'Top workout',
+                ),
+                _Stat(
+                  value: '${recap.longestStreak} days',
+                  label: 'Longest streak',
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

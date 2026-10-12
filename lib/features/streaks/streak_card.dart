@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
 import '../week/week_providers.dart';
+import '../workouts/workout_icons.dart';
 import '../workouts/workout_providers.dart';
-import 'badges.dart';
 import 'milestones_screen.dart';
 import 'streak_engine.dart';
 import 'streak_providers.dart';
@@ -21,8 +21,8 @@ bool freezeJustUsed(StreakResult r, String? today) {
   return d <= 1 && r.current > 0;
 }
 
-/// Overall streak plus the best current per-type streak. Taps through to
-/// milestones.
+/// "Today's streaks": overall activity and the best current workout streak.
+/// Taps through to milestones.
 class StreakCard extends ConsumerWidget {
   const StreakCard({super.key});
 
@@ -48,53 +48,114 @@ class StreakCard extends ConsumerWidget {
         bestType = types[e.key]?.name;
       }
     }
+    final freezeNote = snap != null && freezeJustUsed(snap.overall, today);
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const MilestonesScreen()),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+    return SoftCard(
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const MilestonesScreen())),
+      padding: const EdgeInsets.fromLTRB(18, 16, 14, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Icon(
-                Icons.local_fire_department_outlined,
-                color: overall > 0 ? t.accent : t.textMuted,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      overall > 0 ? streakMessage(overall) : 'No streak yet.',
-                      style: text.titleLarge,
-                    ),
-                    if (snap != null && freezeJustUsed(snap.overall, today))
-                      Text('Streak kept. Freeze used.', style: text.bodySmall)
-                    else if (bestType != null)
-                      Text(
-                        '$bestType ${streakMessage(bestDays)}',
-                        style: text.bodySmall,
-                      ),
-                  ],
-                ),
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: kMinTapTarget),
-                child: Icon(Icons.chevron_right_rounded, color: t.textMuted),
-              ),
+              Expanded(child: Text("Today's streaks", style: text.titleMedium)),
+              Icon(Icons.chevron_right_rounded, color: t.text),
             ],
           ),
-        ),
+          const SizedBox(height: 14),
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: StreakStat(
+                    icon: Icons.local_fire_department_rounded,
+                    cat: Cat.streak,
+                    days: overall,
+                    label: 'overall activity',
+                  ),
+                ),
+                VerticalDivider(width: 24, color: t.border),
+                Expanded(
+                  child: StreakStat(
+                    icon: Icons.fitness_center_rounded,
+                    cat: Cat.strength,
+                    days: bestDays,
+                    label: bestType?.toLowerCase() ?? 'workout',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (freezeNote) ...[
+            const SizedBox(height: 10),
+            Text('Streak kept. Freeze used.', style: text.bodySmall),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// Overall and per-type streaks for the Week tab.
+/// A round icon, a "5 day" figure and a small label under it.
+class StreakStat extends StatelessWidget {
+  const StreakStat({
+    super.key,
+    required this.icon,
+    required this.cat,
+    required this.days,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Cat cat;
+  final int days;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        TintedIcon(icon: icon, cat: cat, size: 46),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$days',
+                      style: text.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' day',
+                      style: text.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                label,
+                style: text.bodySmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Overall activity and the best workout streak, as two small cards.
 class WeekStreaks extends ConsumerWidget {
   const WeekStreaks({super.key});
 
@@ -107,51 +168,80 @@ class WeekStreaks extends ConsumerWidget {
           in ref.watch(workoutTypesProvider).value ?? const <WorkoutType>[])
         t.id: t,
     };
-    final text = Theme.of(context).textTheme;
 
     final perType =
         snap.byType.entries.where((e) => e.value.current > 0).toList()
           ..sort((a, b) => b.value.current.compareTo(a.value.current));
+    final best = perType.isEmpty ? null : perType.first;
+    final bestKey = best == null
+        ? 'custom'
+        : types[best.key]?.iconKey ?? 'custom';
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Streaks', style: text.bodySmall),
-            const SizedBox(height: 8),
-            _Row(
-              label: 'Overall',
-              value: snap.overall.current > 0
-                  ? '${snap.overall.current} days'
-                  : 'None',
-            ),
-            for (final e in perType)
-              _Row(
-                label: types[e.key]?.name ?? 'Workout',
-                value: '${e.value.current} days',
+    Widget card(IconData icon, CatColors colors, String label, int days) =>
+        SoftCard(
+          padding: const EdgeInsets.fromLTRB(10, 14, 6, 14),
+          child: Row(
+            children: [
+              TintedIcon(
+                icon: icon,
+                tint: colors.tint,
+                color: colors.icon,
+                size: 40,
               ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$days',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(
+                            text: days == 1 ? ' day' : ' days',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+
+    final tokens = context.tokens;
+    return Row(
+      children: [
+        Expanded(
+          child: card(
+            Icons.local_fire_department_rounded,
+            tokens.cat(Cat.streak),
+            'Overall activity',
+            snap.overall.current,
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: card(
+            workoutIcon(bestKey),
+            workoutColors(context, bestKey),
+            best == null ? 'Workout' : types[best.key]?.name ?? 'Workout',
+            best?.value.current ?? 0,
+          ),
+        ),
+      ],
     );
   }
-}
-
-class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      children: [
-        Expanded(child: Text(label)),
-        Text(value),
-      ],
-    ),
-  );
 }

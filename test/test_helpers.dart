@@ -14,6 +14,7 @@ import 'package:wellbeing/features/account/auth_service.dart';
 import 'package:wellbeing/features/account/sync_providers.dart';
 import 'package:wellbeing/features/groups/groups_providers.dart';
 import 'package:wellbeing/features/groups/groups_remote.dart';
+import 'package:wellbeing/features/groups/text_share.dart';
 import 'package:wellbeing/features/reminders/notification_scheduler.dart';
 import 'package:wellbeing/features/settings/data_export.dart';
 import 'package:wellbeing/features/reminders/reminder_providers.dart';
@@ -47,6 +48,9 @@ late FakeGroupsRemote testGroups;
 /// Where exports go in the current [appTest].
 late FakeExportSink testExport;
 
+/// The share sheet in the current [appTest].
+late FakeTextSharer testShare;
+
 /// Runs [body] against the full app on an in-memory database and a fixed
 /// clock (Wed 13 May 2026, 10:00 UTC), on a phone-sized surface.
 ///
@@ -61,9 +65,11 @@ void appTest(
   String? setupIssue,
   FakeRemoteStore? remote,
   FakeGroupsRemote? groups,
+  Widget Function(Widget app)? wrapApp,
+  Map<String, Object> prefs = const {},
 }) {
   testWidgets(name, (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(prefs);
     drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.75;
@@ -78,6 +84,7 @@ void appTest(
     testSyncState = MemorySyncStateStore();
     testGroups = groups ?? FakeGroupsRemote();
     testExport = FakeExportSink();
+    testShare = FakeTextSharer();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -90,10 +97,14 @@ void appTest(
           syncStateProvider.overrideWithValue(testSyncState),
           groupsRemoteProvider.overrideWithValue(testGroups),
           exportSinkProvider.overrideWithValue(testExport),
+          textSharerProvider.overrideWithValue(testShare),
+          showSplashProvider.overrideWithValue(false),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],
-        child: const WellbeingApp(),
+        child: wrapApp == null
+            ? const WellbeingApp()
+            : wrapApp(const WellbeingApp()),
       ),
     );
     await tester.pumpAndSettle();

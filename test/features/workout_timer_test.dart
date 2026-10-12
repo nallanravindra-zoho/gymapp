@@ -52,7 +52,7 @@ void main() {
   });
 
   test('formatElapsed', () {
-    expect(formatElapsed(const Duration(minutes: 32, seconds: 18)), '32:18');
+    expect(formatElapsed(const Duration(minutes: 32, seconds: 18)), '00:32:18');
     expect(
       formatElapsed(const Duration(hours: 1, minutes: 2, seconds: 3)),
       '01:02:03',

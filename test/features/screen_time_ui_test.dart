@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wellbeing/features/screen_time/usage_source.dart';
 
+import '../helpers/nav_b.dart';
 import '../test_helpers.dart';
 
 FakeUsageSource withData() => FakeUsageSource(
@@ -16,23 +17,20 @@ FakeUsageSource withData() => FakeUsageSource(
   },
 );
 
-Future<void> openScreenTime(WidgetTester tester) async {
-  await tester.tap(find.text('Screen time').first);
-  await tester.pumpAndSettle();
-}
-
 void main() {
-  appTest('without access the card offers Set up', (tester, db) async {
+  appTest('without access Today says screen time is not set up', (
+    tester,
+    db,
+  ) async {
     expect(find.text('Screen time'), findsOneWidget);
-    expect(find.text('Set up'), findsOneWidget);
+    expect(find.text('Not set up yet'), findsOneWidget);
   });
 
   appTest('the explanation comes first, then the system settings page', (
     tester,
     db,
   ) async {
-    await tester.tap(find.text('Set up'));
-    await tester.pumpAndSettle();
+    await openScreenTime(tester);
 
     expect(find.text('Allow usage access'), findsOneWidget);
     expect(find.textContaining('Only daily totals are kept'), findsOneWidget);
@@ -47,18 +45,19 @@ void main() {
     expect(find.text('Allow usage access'), findsNothing);
   });
 
-  appTest('with access the card shows today and the screen shows detail', (
+  appTest('with access Today shows the total and the screen shows detail', (
     tester,
     db,
   ) async {
-    expect(find.text('4 h 12 min'), findsOneWidget);
-    expect(find.text('Set up'), findsNothing);
+    expect(find.text('4h 12m'), findsOneWidget);
+    expect(find.text('Not set up yet'), findsNothing);
     expect((await db.select(db.screenTimeDaily).get()).length, 7);
 
     await openScreenTime(tester);
     expect(find.text('Total screen time'), findsOneWidget);
+    expect(find.text('4h 12m'), findsOneWidget);
     expect(find.text('Social media'), findsOneWidget);
-    expect(find.text('1 h 32 min'), findsOneWidget);
+    expect(find.text('1h 32m'), findsOneWidget);
     expect(find.text('37%'), findsOneWidget);
     expect(find.text('Late evening'), findsOneWidget);
     expect(find.text('45 min'), findsOneWidget);
@@ -72,14 +71,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('5 h'));
     await tester.pumpAndSettle();
-    expect(find.text('Goal 5 h'), findsOneWidget);
+    expect(find.text('(Goal 5 h)'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
     await tester.tap(find.text('Change goal'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('No goal'));
     await tester.pumpAndSettle();
-    expect(find.text('Goal 5 h'), findsNothing);
+    expect(find.text('(Goal 5 h)'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
   }, usage: withData());
 
@@ -92,15 +91,15 @@ void main() {
     expect(find.text('Daily average'), findsOneWidget);
     expect(find.text('Last 7 days'), findsOneWidget);
     // (252 + 180 + 300) / 3 = 244
-    expect(find.text('4 h 4 min'), findsOneWidget);
-    expect(find.text('12 h 12 min'), findsOneWidget);
+    expect(find.text('4h 4m'), findsOneWidget);
+    expect(find.text('12h 12m'), findsOneWidget);
     for (final d in ['Wed', 'Tue', 'Mon', 'Sun', 'Sat', 'Fri', 'Thu']) {
       expect(find.text(d), findsOneWidget);
     }
   }, usage: withData());
 
   appTest('granting access later starts reading usage', (tester, db) async {
-    expect(find.text('Set up'), findsOneWidget);
+    expect(find.text('Not set up yet'), findsOneWidget);
     testUsage.access = true;
     testUsage.byDate['2026-05-13'] = const DayUsage(totalMinutes: 61);
 
@@ -113,8 +112,8 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
-    expect(find.text('Set up'), findsNothing);
-    expect(find.text('1 h 1 min'), findsOneWidget);
+    expect(find.text('Not set up yet'), findsNothing);
+    expect(find.text('1h 1m'), findsOneWidget);
   });
 
   test('screen time copy has no exclamation marks', () {

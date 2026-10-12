@@ -7,12 +7,12 @@ import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/features/habits/reminder_config.dart';
 import 'package:wellbeing/features/reminders/reminders_screen.dart';
 
+import '../helpers/nav_b.dart';
 import '../test_helpers.dart';
 
 Future<void> openReminders(WidgetTester tester) async {
-  await tester.tap(find.text('Manage'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Reminders')); // the tile on the habits screen
+  await openHabits(tester);
+  await tester.tap(find.byTooltip('Reminders')); // the bell in the app bar
   await tester.pumpAndSettle();
 }
 
@@ -41,18 +41,10 @@ void main() {
     expect(dayLabel(DateTime(2026, 6, 1, 9), now), 'Mon 1 Jun');
   });
 
-  appTest('is reachable from Manage, by the tile', (tester, db) async {
+  appTest('is reachable from Healthy Habits, by the bell', (tester, db) async {
     await openReminders(tester);
     expect(find.text('Next reminders'), findsOneWidget);
     expect(find.text('Check that it works'), findsOneWidget);
-  });
-
-  appTest('is reachable from the bell in the app bar too', (tester, db) async {
-    await tester.tap(find.text('Manage'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Reminders'));
-    await tester.pumpAndSettle();
-    expect(find.text('Next reminders'), findsOneWidget);
   });
 
   appTest('explains plainly when no habit has reminders on', (

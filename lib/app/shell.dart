@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/widgets/placeholder_screen.dart';
 import '../data/providers.dart';
 import '../features/reminders/action_bridge.dart';
 import '../features/reminders/reminder_providers.dart';
 import '../features/screen_time/screen_time_providers.dart';
 import '../features/account/sync_providers.dart';
+import '../features/chat/chat_screen.dart';
 import '../features/groups/groups_screen.dart';
 import '../features/insights/insights_screen.dart';
 import '../features/streaks/celebration_host.dart';
@@ -23,11 +23,11 @@ class _Tab {
 }
 
 const _tabs = [
-  _Tab('Today', Icons.today_outlined, Icons.today),
-  _Tab('Week', Icons.calendar_view_week_outlined, Icons.calendar_view_week),
-  _Tab('Groups', Icons.group_outlined, Icons.group),
-  _Tab('Insights', Icons.insights_outlined, Icons.insights),
-  _Tab('Chat', Icons.chat_bubble_outline, Icons.chat_bubble),
+  _Tab('Today', Icons.home_outlined, Icons.home_rounded),
+  _Tab('Week', Icons.calendar_month_outlined, Icons.calendar_month_rounded),
+  _Tab('Groups', Icons.groups_outlined, Icons.groups_rounded),
+  _Tab('Insights', Icons.lightbulb_outline_rounded, Icons.lightbulb_rounded),
+  _Tab('Chat', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded),
 ];
 
 /// Bottom-tab shell (spec section 5). Each tab keeps its own state.
@@ -96,7 +96,7 @@ class _AppShellState extends ConsumerState<AppShell>
             WeekScreen(),
             GroupsScreen(),
             InsightsScreen(),
-            PlaceholderScreen(title: 'Chat', note: 'Not available yet.'),
+            ChatScreen(),
           ],
         ),
         bottomNavigationBar: NavigationBar(

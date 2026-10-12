@@ -1,44 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/format/durations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/time/local_date.dart';
+import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
+import '../habits/habits_screen.dart';
 import '../week/week_providers.dart';
 import 'screen_time_logic.dart';
 import 'screen_time_providers.dart';
 
-class ScreenTimeScreen extends ConsumerWidget {
+enum _Tab { today, week }
+
+class ScreenTimeScreen extends ConsumerStatefulWidget {
   const ScreenTimeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ScreenTimeScreen> createState() => _ScreenTimeScreenState();
+}
+
+class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen> {
+  _Tab _tab = _Tab.today;
+
+  @override
+  Widget build(BuildContext context) {
     final access = ref.watch(screenTimeAccessProvider);
 
     return access.when(
-      loading: () => Scaffold(appBar: AppBar(title: const Text('Screen time'))),
+      loading: () => Scaffold(appBar: _bar(context)),
       error: (_, _) => const _AccessExplanation(),
       data: (granted) => granted
-          ? DefaultTabController(
-              length: 2,
-              child: Scaffold(
-                appBar: AppBar(
-                  title: const Text('Screen time'),
-                  bottom: const TabBar(
-                    tabs: [
-                      Tab(text: 'Today'),
-                      Tab(text: 'Week'),
-                    ],
+          ? Scaffold(
+              appBar: _bar(context),
+              body: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: PillTabs<_Tab>(
+                      options: const {_Tab.today: 'Today', _Tab.week: 'Week'},
+                      selected: _tab,
+                      onChanged: (v) => setState(() => _tab = v),
+                    ),
                   ),
-                ),
-                body: const TabBarView(children: [_TodayTab(), _WeekTab()]),
+                  Expanded(
+                    child: _tab == _Tab.today
+                        ? const _TodayTab()
+                        : const _WeekTab(),
+                  ),
+                ],
               ),
             )
           : const _AccessExplanation(),
     );
   }
 }
+
+AppBar _bar(BuildContext context) => AppBar(
+  title: const Text('Screen Time'),
+  leading: IconButton(
+    tooltip: 'Back',
+    icon: const Icon(Icons.arrow_back_rounded),
+    onPressed: () => Navigator.maybePop(context),
+  ),
+);
 
 /// Explains why access is needed before sending the user to system settings
 /// (spec 8.1, section 9).
@@ -49,7 +75,7 @@ class _AccessExplanation extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Screen time')),
+      appBar: _bar(context),
       body: Padding(
         padding: EdgeInsets.fromLTRB(
           20,
@@ -79,17 +105,11 @@ class _AccessExplanation extends ConsumerWidget {
             ),
             const Spacer(),
             FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(kMinTapTarget),
-              ),
               onPressed: () => ref.read(usageSourceProvider).openSettings(),
               child: const Text('Open settings'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(kMinTapTarget),
-              ),
               onPressed: () => Navigator.pop(context),
               child: const Text('Not now'),
             ),
@@ -121,94 +141,136 @@ class _TodayTab extends ConsumerWidget {
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
+          20,
+          14,
+          20,
           MediaQuery.paddingOf(context).bottom + 24,
         ),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            durationShort(total),
+            style: text.displaySmall?.copyWith(
+              fontSize: 38,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Total screen time',
+                  style: text.bodyLarge?.copyWith(color: t.textMuted),
+                ),
+              ),
+              if (goal != null)
+                Text(
+                  '(${goalLabel(goal)})',
+                  style: text.bodyMedium?.copyWith(color: t.textMuted),
+                ),
+            ],
+          ),
+          if (goal != null) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (total / goal).clamp(0.0, 1.0),
+                minHeight: 9,
+                color: t.accent,
+                backgroundColor: t.track,
+              ),
+            ),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, kMinTapTarget),
+                padding: EdgeInsets.zero,
+              ),
+              onPressed: () => _editGoal(context, ref, goal),
+              child: Text(goal == null ? 'Set a daily goal' : 'Change goal'),
+            ),
+          ),
+          const RowDivider(),
+          const SizedBox(height: 16),
+          Text('By category', style: text.titleSmall),
+          const SizedBox(height: 4),
+          if (categories.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'No screen time recorded yet today.',
+                style: text.bodyMedium?.copyWith(color: t.textMuted),
+              ),
+            )
+          else
+            for (var i = 0; i < categories.length; i++) ...[
+              if (i > 0) const RowDivider(indent: 66),
+              _CategoryRow(
+                category: categories[i].key,
+                minutes: categories[i].value,
+                percent: percentOf(categories[i].value, total),
+              ),
+            ],
+          const SizedBox(height: 14),
+          if (row != null && row.lateEveningMinutes > 0) ...[
+            SoftCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 children: [
-                  Text(formatScreenTime(total), style: text.displaySmall),
-                  const SizedBox(height: 4),
-                  Text('Total screen time', style: text.bodySmall),
-                  if (goal != null) ...[
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: (total / goal).clamp(0.0, 1.0),
-                        minHeight: 8,
-                        color: t.accent,
-                        backgroundColor: t.textMuted.withValues(alpha: 0.2),
-                      ),
+                  const TintedIcon(
+                    icon: Icons.nights_stay_rounded,
+                    cat: Cat.sleep,
+                    size: 44,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Late evening', style: text.titleSmall),
+                        Text('After 9 PM', style: text.bodySmall),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(goalLabel(goal), style: text.bodySmall),
-                  ],
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(0, kMinTapTarget),
-                      padding: EdgeInsets.zero,
-                      alignment: Alignment.centerLeft,
-                    ),
-                    onPressed: () => _editGoal(context, ref, goal),
-                    child: Text(
-                      goal == null ? 'Set a daily goal' : 'Change goal',
-                    ),
+                  ),
+                  Text(
+                    durationShort(row.lateEveningMinutes),
+                    style: text.titleSmall,
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text('By category', style: text.bodySmall),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: categories.isEmpty
-                  ? const Text('No screen time recorded yet today.')
-                  : Column(
-                      children: [
-                        for (final c in categories)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Row(
-                              children: [
-                                Expanded(child: Text(categoryLabel(c.key))),
-                                Text(formatScreenTime(c.value)),
-                                SizedBox(
-                                  width: 48,
-                                  child: Text(
-                                    '${percentOf(c.value, total)}%',
-                                    textAlign: TextAlign.end,
-                                    style: text.bodySmall,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+            const SizedBox(height: 12),
+          ],
+          if (total > 0)
+            SoftCard(
+              color: t.cat(Cat.screen).tint.withValues(alpha: 0.55),
+              borderColor: Colors.transparent,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const HabitsScreen()),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  const TintedIcon(
+                    icon: Icons.self_improvement_rounded,
+                    tint: Color(0xFFBFE8C9),
+                    color: Color(0xFF1D6D57),
+                    size: 48,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      'Try a 10 min\nscreen break',
+                      style: text.titleSmall,
                     ),
-            ),
-          ),
-          if (row != null && row.lateEveningMinutes > 0) ...[
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                minTileHeight: kMinTapTarget,
-                leading: const Icon(Icons.nights_stay_outlined),
-                title: const Text('Late evening'),
-                subtitle: const Text('After 9 PM'),
-                trailing: Text(formatScreenTime(row.lateEveningMinutes)),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: t.text),
+                ],
               ),
             ),
-          ],
         ],
       ),
     );
@@ -226,6 +288,87 @@ class _TodayTab extends ConsumerWidget {
     if (result != null) {
       await ref.read(screenTimeGoalProvider.notifier).set(result.minutes);
     }
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.category,
+    required this.minutes,
+    required this.percent,
+  });
+
+  final String category;
+  final int minutes;
+  final int percent;
+
+  static (IconData, Color, Color) _style(String key) => switch (key) {
+    'social' => (
+      Icons.forum_rounded,
+      const Color(0xFFF6D5F0),
+      const Color(0xFF9B2FA0),
+    ),
+    'video' => (
+      Icons.smart_display_rounded,
+      const Color(0xFFFAD9D4),
+      const Color(0xFFD13B2E),
+    ),
+    'browser' => (
+      Icons.language_rounded,
+      const Color(0xFFD1ECEE),
+      const Color(0xFF1B7E96),
+    ),
+    'productivity' => (
+      Icons.edit_note_rounded,
+      const Color(0xFFD9E1F8),
+      const Color(0xFF2D4EA6),
+    ),
+    'games' => (
+      Icons.sports_esports_rounded,
+      const Color(0xFFE3DAF5),
+      const Color(0xFF5A3BA8),
+    ),
+    _ => (Icons.apps_rounded, const Color(0xFFE6E8EB), const Color(0xFF3C4F66)),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, tint, color) = _style(category);
+    final text = Theme.of(context).textTheme;
+    return Semantics(
+      label:
+          '${categoryLabel(category)}, ${formatScreenTime(minutes)}, $percent percent',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(
+            children: [
+              TintedIcon(
+                icon: icon,
+                tint: tint,
+                color: color,
+                size: 46,
+                iconSize: 24,
+                square: true,
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Text(categoryLabel(category), style: text.bodyLarge),
+              ),
+              Text(durationCompact(minutes), style: text.bodyLarge),
+              SizedBox(
+                width: 52,
+                child: Text(
+                  '$percent%',
+                  textAlign: TextAlign.end,
+                  style: text.bodyLarge,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -296,33 +439,29 @@ class _WeekTab extends ConsumerWidget {
         MediaQuery.paddingOf(context).bottom + 24,
       ),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Stat(
-                    value: formatScreenTime(summary.averageMinutes),
-                    label: 'Daily average',
-                  ),
+        SoftCard(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  value: durationShort(summary.averageMinutes),
+                  label: 'Daily average',
                 ),
-                Expanded(
-                  child: _Stat(
-                    value: formatScreenTime(summary.totalMinutes),
-                    label: 'Last 7 days',
-                  ),
+              ),
+              Expanded(
+                child: _Stat(
+                  value: durationShort(summary.totalMinutes),
+                  label: 'Last 7 days',
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _Bars(dates: dates, minutes: byDate, goal: goal),
-          ),
+        const SizedBox(height: 14),
+        SoftCard(
+          padding: const EdgeInsets.all(16),
+          child: _Bars(dates: dates, minutes: byDate, goal: goal),
         ),
         if (summary.daysWithData == 0)
           Padding(

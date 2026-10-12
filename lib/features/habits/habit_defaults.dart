@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/tokens.dart';
 import '../../data/tables/tables.dart';
 import 'reminder_config.dart';
 
@@ -23,7 +24,7 @@ const _day = {1, 2, 3, 4, 5, 6, 7};
 final habitDefaults = <HabitKind, HabitDefaults>{
   HabitKind.water: const HabitDefaults(
     label: 'Water',
-    icon: Icons.water_drop_outlined,
+    icon: Icons.water_drop_rounded,
     dailyTarget: 6,
     config: ReminderConfig(
       windowStart: 9 * 60,
@@ -45,7 +46,7 @@ final habitDefaults = <HabitKind, HabitDefaults>{
   ),
   HabitKind.stretch: const HabitDefaults(
     label: 'Stretch',
-    icon: Icons.self_improvement_rounded,
+    icon: Icons.sports_gymnastics_rounded,
     dailyTarget: 4,
     config: ReminderConfig(
       windowStart: 9 * 60,
@@ -56,7 +57,7 @@ final habitDefaults = <HabitKind, HabitDefaults>{
   ),
   HabitKind.custom: const HabitDefaults(
     label: 'Custom',
-    icon: Icons.eco_outlined,
+    icon: Icons.eco_rounded,
     dailyTarget: 1,
     config: ReminderConfig(
       mode: ReminderMode.times,
@@ -67,6 +68,15 @@ final habitDefaults = <HabitKind, HabitDefaults>{
 };
 
 IconData habitIcon(HabitKind kind) => habitDefaults[kind]!.icon;
+
+/// The tint a habit's icon sits on, by kind (reference: water is blue,
+/// stand is green, stretch is pink-violet, anything else is a leaf).
+Cat habitCat(HabitKind kind) => switch (kind) {
+  HabitKind.water => Cat.water,
+  HabitKind.stand => Cat.habit,
+  HabitKind.stretch => Cat.stretch,
+  HabitKind.custom => Cat.leaf,
+};
 
 /// "Every 2 hours", "Every 90 minutes", or the times of day.
 String describeInterval(int minutes) {

@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Microcopy rules (spec 4.5): neutral wording, no exclamation marks, no
 /// emojis in system text, no guilt language. This reads every string literal
 /// in the app's source, so new screens are covered without extra work.
-final _literal = RegExp(r"""'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)" """.trim());
+final _literal = RegExp(
+  r"""'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)" """.trim(),
+);
 
 Iterable<(String file, int line, String text)> literals() sync* {
   for (final f in Directory('lib').listSync(recursive: true)) {
@@ -36,7 +38,10 @@ void main() {
   });
 
   test('no emojis in any text', () {
-    final emoji = RegExp(r'[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2B06}]', unicode: true);
+    final emoji = RegExp(
+      r'[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2B06}]',
+      unicode: true,
+    );
     final bad = [
       for (final (file, line, text) in literals())
         if (emoji.hasMatch(text)) '$file:$line "$text"',
@@ -61,9 +66,31 @@ void main() {
   test('the scanner does find text', () {
     // Guards against the regex silently matching nothing.
     expect(literals().length, greaterThan(500));
+    expect(literals().any((l) => l.$3 == 'Delete account'), isTrue);
+  });
+
+  test('the redesigned screens are scanned', () {
+    // Text from the Chat tab, the groups widgets, Insights and the Today
+    // header must be reachable by the scanner, so a stray "!" there fails
+    // the rules above.
+    final scanned = literals().toList();
+    bool has(String file, String text) => scanned.any(
+      (l) => l.$1.replaceAll(r'\', '/').endsWith(file) && l.$3 == text,
+    );
     expect(
-      literals().any((l) => l.$3 == 'Delete account'),
+      has('chat/chat_screen.dart', 'Here are your quick reports:'),
       isTrue,
+    );
+    expect(has('chat/chat_reports.dart', 'Same as last week'), isTrue);
+    expect(has('groups/groups_screen.dart', 'Add group'), isTrue);
+    expect(has('groups/group_screen.dart', 'Consistency'), isTrue);
+    expect(has('insights/insights_screen.dart', 'Your patterns'), isTrue);
+    expect(has('today/today_text.dart', 'Good morning'), isTrue);
+    expect(
+      scanned.where(
+        (l) => l.$1.replaceAll(r'\', '/').endsWith('today/today_text.dart'),
+      ),
+      isNotEmpty,
     );
   });
 }

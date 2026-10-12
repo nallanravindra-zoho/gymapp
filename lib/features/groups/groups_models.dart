@@ -6,6 +6,7 @@ enum GroupsProblem {
   inviteNotFound,
   groupFull,
   tooManyGroups,
+  tooManyAttempts,
   notOwner,
   invalidName,
   network,
@@ -21,6 +22,8 @@ class GroupsException implements Exception {
       'That invite is not valid. Ask for a new one.',
     GroupsProblem.groupFull => 'This group is full.',
     GroupsProblem.tooManyGroups => 'You are in the maximum number of groups.',
+    GroupsProblem.tooManyAttempts =>
+      'Too many wrong codes. Wait about 15 minutes and try again.',
     GroupsProblem.notOwner => 'Only the owner can do that.',
     GroupsProblem.invalidName => 'Enter a name up to 40 characters.',
     GroupsProblem.network => 'Could not reach the server. Try again.',
@@ -156,24 +159,25 @@ List<RankedEntry> rankLeaderboard(
   return ranked;
 }
 
-// Invite links ------------------------------------------------------------------
+// Invite codes -------------------------------------------------------------------
 
-const _inviteScheme = 'wellbeing';
+/// Shows a code in groups of four for reading out: 4821 stays "4821" and
+/// a longer older code such as 12345678 becomes "1234 5678".
+String formatInviteCode(String code) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < code.length; i++) {
+    if (i > 0 && i % 4 == 0) buffer.write(' ');
+    buffer.write(code[i]);
+  }
+  return buffer.toString();
+}
 
-String inviteLink(String code) => '$_inviteScheme://join/$code';
-
-/// Accepts a pasted invite (the link, a bare code, or the whole message that
-/// "Copy invite" produces) and returns the code, or null when there is none.
+/// Reads a typed or pasted invite code. Spaces and dashes are ignored, so
+/// "1234 5678" and "1234-5678" both work. Returns null when the text could
+/// not be a code.
 String? parseInviteCode(String input) {
-  final text = input.trim();
-  if (text.isEmpty) return null;
-  final link = RegExp(
-    '$_inviteScheme://join/([A-Za-z0-9]{6,32})',
-    caseSensitive: false,
-  ).firstMatch(text);
-  if (link != null) return link.group(1)!.toLowerCase();
-  final bare = text.toLowerCase();
-  return RegExp(r'^[a-z0-9]{6,32}$').hasMatch(bare) ? bare : null;
+  final code = input.replaceAll(RegExp(r'[\s-]'), '').toLowerCase();
+  return RegExp(r'^[a-z0-9]{4,32}$').hasMatch(code) ? code : null;
 }
 
 // Feed text -------------------------------------------------------------------------

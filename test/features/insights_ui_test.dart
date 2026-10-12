@@ -11,7 +11,7 @@ import 'package:wellbeing/data/tables/tables.dart';
 import '../test_helpers.dart';
 
 Future<void> openInsights(WidgetTester tester) async {
-  await tester.tap(find.byIcon(Icons.insights_outlined));
+  await tester.tap(find.byIcon(Icons.lightbulb_outline_rounded));
   await tester.pumpAndSettle();
 }
 
@@ -50,7 +50,7 @@ void main() {
     expect(find.text('4 – 10 May'), findsOneWidget);
     expect(find.text('No workouts logged this week.'), findsOneWidget);
     expect(find.text('No insights for this week yet.'), findsOneWidget);
-    expect(find.text('Tips'), findsNothing);
+    expect(find.text("This week's tips"), findsNothing);
     expect(find.text(tipFooter), findsNothing);
   });
 
@@ -63,15 +63,19 @@ void main() {
     expect(find.text('Week summary'), findsOneWidget);
     expect(find.text('Active days'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
+    expect(find.text('Total minutes'), findsOneWidget);
     expect(find.text('2 h'), findsOneWidget);
+    expect(find.text('Top workout'), findsOneWidget);
     expect(find.text('Yoga'), findsOneWidget);
+    expect(find.text('Your patterns'), findsOneWidget);
 
     // Insights in plain, factual wording.
     expect(find.text('4 active days last week, up from 3.'), findsOneWidget);
     expect(find.text('Longest gap: 3 days (Thu to Sat).'), findsOneWidget);
 
     // Tips: at most three, each tied to an insight, with the footer once.
-    expect(find.text('Tips'), findsOneWidget);
+    expect(find.text("This week's tips"), findsOneWidget);
+    await tester.scrollUntilVisible(find.text(tipFooter), 200);
     expect(find.text(tipFooter), findsOneWidget);
     final shown = seedTips
         .where((t) => find.text(t.text).evaluate().isNotEmpty)

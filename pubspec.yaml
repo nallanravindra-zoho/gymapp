@@ -1,5 +1,5 @@
 name: wellbeing
-description: "Well-Being Companion: workouts, habit breaks, sleep and screen time."
+description: "Well Being Companion (WBC): workouts, healthy habits, sleep and screen time."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -7,18 +7,22 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  audioplayers: ^6.8.1
   drift: ^2.35.1
   drift_flutter: ^0.3.1
   flutter:
     sdk: flutter
   flutter_local_notifications: ^22.3.1
   flutter_riverpod: ^3.4.3
+  flutter_tts: ^4.2.5
   google_sign_in: ^7.2.0
+  record: ^7.1.2
   share_plus: ^13.3.1
   shared_preferences: ^2.5.6
   supabase_flutter: ^2.18.0
   timezone: ^0.11.1
   uuid: ^4.6.0
+  wakelock_plus: ^1.8.0
 
 dev_dependencies:
   flutter_test:
@@ -30,3 +34,18 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/
+    - assets/sounds/
+  fonts:
+    # Plus Jakarta Sans, SIL Open Font License (assets/fonts/OFL-PlusJakartaSans.txt).
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans_400Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans_700Bold.ttf
+          weight: 700
