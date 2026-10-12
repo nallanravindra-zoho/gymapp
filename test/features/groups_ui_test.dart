@@ -39,6 +39,14 @@ FakeGroupsRemote withCrew() {
     'type_id': 'builtin-walk',
     'duration_minutes': 20,
   }, DateTime.utc(2026, 5, 11, 7));
+  // This week's scores (only used to rank; never shown).
+  for (final (u, score) in [('asha', 8.0), ('ben', 6.0), (me, 5.0)]) {
+    s.seedScores(g.id, u, GroupCategory.workouts, score, metrics: {
+      'active_minutes': 120,
+      'active_days': 4,
+      'sessions': 4,
+    });
+  }
   return s;
 }
 
@@ -50,6 +58,34 @@ Future<void> openGroupsTab(WidgetTester tester) async {
 Future<void> openGroup(WidgetTester tester, String name) async {
   await openGroupsTab(tester);
   await tester.tap(find.text(name));
+  await tester.pumpAndSettle();
+}
+
+/// Switches the group screen to its Workouts tab.
+Future<void> openWorkoutsTab(WidgetTester tester) async {
+  await tester.tap(find.text('Workouts').first);
+  await tester.pumpAndSettle();
+}
+
+/// Confirms the sharing sheet that opens before creating or joining.
+Future<void> confirmSheet(WidgetTester tester, String action) async {
+  await tester.tap(
+    find.descendant(of: find.byType(BottomSheet), matching: find.text(action)),
+  );
+  await tester.pumpAndSettle();
+}
+
+final verticalScrollable = find
+    .byWidgetPredicate((w) => w is Scrollable && w.axis == Axis.vertical)
+    .first;
+
+/// Scrolls the settings screen until a sharing switch is on screen.
+Future<void> showSwitch(WidgetTester tester, String title) async {
+  await tester.scrollUntilVisible(
+    find.widgetWithText(SwitchListTile, title),
+    200,
+    scrollable: verticalScrollable,
+  );
   await tester.pumpAndSettle();
 }
 
@@ -74,11 +110,13 @@ void main() {
     ) async {
       await openGroupsTab(tester);
       expect(find.text('Groups need an account'), findsOneWidget);
-      expect(find.textContaining('never shared'), findsOneWidget);
+      expect(find.textContaining('stay private'), findsOneWidget);
       expect(find.text('Create group'), findsNothing);
       await tester.tap(find.text('Sign in'));
       await tester.pumpAndSettle();
       // Sign in opens the profile hub; sign-in itself is under Account & sync.
+      await tester.tap(find.text('App Management'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Account & sync'));
       await tester.pumpAndSettle();
       expect(find.text('Continue with Google'), findsOneWidget);
@@ -142,6 +180,7 @@ void main() {
         await typeInto(tester, '  Sunday crew ');
         await tester.tap(find.text('Create'));
         await tester.pumpAndSettle();
+        await confirmSheet(tester, 'Create group');
 
         expect(find.text('Sunday crew'), findsWidgets);
         expect(find.text('This week'), findsOneWidget);
@@ -182,6 +221,7 @@ void main() {
         await typeInto(tester, 'One more');
         await tester.tap(find.text('Create'));
         await tester.pumpAndSettle();
+        await confirmSheet(tester, 'Create group');
         expect(
           find.text('You are in the maximum number of groups.'),
           findsOneWidget,
@@ -375,6 +415,7 @@ void main() {
       'shows this week and ranks by volume by default',
       (tester, db) async {
         await openGroup(tester, 'Sunday crew');
+        await openWorkoutsTab(tester);
         expect(find.text('11 – 17 May'), findsOneWidget);
         // Volume: Asha 120, then Ben and Divya tied on 45 minutes.
         final rows = leaderboardRows(tester);
@@ -390,6 +431,7 @@ void main() {
       'Consistency re-ranks by active days',
       (tester, db) async {
         await openGroup(tester, 'Sunday crew');
+        await openWorkoutsTab(tester);
         await tester.tap(find.text('Consistency'));
         await tester.pumpAndSettle();
         // Ben 5 days, Asha 4, Divya 2.
@@ -411,12 +453,14 @@ void main() {
       'members who do not share workouts are not listed',
       (tester, db) async {
         await openGroup(tester, 'Sunday crew');
-        expect(
-          find.text('Dev', skipOffstage: false),
-          findsOneWidget,
-          reason: 'still a member',
-        );
+        await openWorkoutsTab(tester);
         expect(leaderboardRows(tester).join(), isNot(contains('Dev')));
+        await tester.scrollUntilVisible(
+          find.text('Dev'),
+          300,
+          scrollable: verticalScrollable,
+        );
+        expect(find.text('Dev'), findsOneWidget, reason: 'still a member');
       },
       auth: signedInAuth(),
       groups: withCrew()
@@ -511,10 +555,12 @@ void main() {
       'your switches reach the server and hide you again at once',
       (tester, db) async {
         await openGroup(tester, 'Sunday crew');
+        await openWorkoutsTab(tester);
         expect(leaderboardRows(tester).join(), contains('You'));
         await openSettings(tester);
 
         expect(find.textContaining('never shared'), findsOneWidget);
+        await showSwitch(tester, 'Workouts');
         await tester.tap(find.widgetWithText(SwitchListTile, 'Workouts'));
         await tester.pumpAndSettle();
         expect(testGroups.sharing('g1', me)!.workouts, isFalse);
@@ -522,12 +568,17 @@ void main() {
 
         await tester.pageBack();
         await tester.pumpAndSettle();
-        expect(leaderboardRows(tester).join(), isNot(contains('You')));
+        // Not sharing workouts: no Workouts tab, and the feed hides you.
+        expect(find.text('Workouts'), findsNothing);
         expect(find.text('You logged Walk for 20 min.'), findsNothing);
 
         await openSettings(tester);
+        await showSwitch(tester, 'Workouts');
         await tester.tap(find.widgetWithText(SwitchListTile, 'Workouts'));
-        await tester.tap(find.widgetWithText(SwitchListTile, 'Break goals'));
+        await showSwitch(tester, 'Healthy Habits');
+        await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Healthy Habits'),
+        );
         await tester.pumpAndSettle();
         expect(testGroups.sharing('g1', me)!.workouts, isTrue);
         expect(testGroups.sharing('g1', me)!.breaks, isFalse);

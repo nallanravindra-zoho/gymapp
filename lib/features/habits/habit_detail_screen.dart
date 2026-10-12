@@ -7,6 +7,7 @@ import '../../core/time/local_date.dart';
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
 import '../week/week_providers.dart';
+import 'habit_actions.dart';
 import 'habit_providers.dart';
 import 'habit_setup_screen.dart';
 
@@ -37,6 +38,7 @@ class HabitDetailScreen extends ConsumerWidget {
     );
     if (ok != true) return;
     await ref.read(habitRepositoryProvider).delete(habitId);
+    await refreshReminders(ref);
     navigator.pop();
   }
 
@@ -103,7 +105,10 @@ class HabitDetailScreen extends ConsumerWidget {
                           minHeight: kMinTapTarget,
                         ),
                         onPressed: count > 0
-                            ? () => repo.removeLatestLog(habit.id, today)
+                            ? () async {
+                                await repo.removeLatestLog(habit.id, today);
+                                refreshReminders(ref);
+                              }
                             : null,
                         icon: const Icon(Icons.remove_rounded),
                       ),
@@ -134,6 +139,7 @@ class HabitDetailScreen extends ConsumerWidget {
                             habit: habit,
                             dayCutoffMinutes: user.dayCutoffMinutes,
                           );
+                          refreshReminders(ref);
                         },
                         icon: const Icon(Icons.add_rounded),
                       ),

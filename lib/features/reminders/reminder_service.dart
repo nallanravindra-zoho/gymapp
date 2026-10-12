@@ -81,7 +81,18 @@ class ReminderService {
     );
   }
 
-  Future<void> reschedule() async {
+  Future<void> _tail = Future<void>.value();
+
+  /// Rebuilds the planned reminders from stored preferences and progress.
+  /// Calls are queued, so overlapping requests (a log and a settings change,
+  /// say) never interleave.
+  Future<void> reschedule() {
+    final next = _tail.then((_) => _reschedule());
+    _tail = next.catchError((Object _) {});
+    return next;
+  }
+
+  Future<void> _reschedule() async {
     await scheduler.cancelPlanned();
     // Hobby reminders (R5) live in their own id range; rebuild them here so
     // they follow app start and every preference change.

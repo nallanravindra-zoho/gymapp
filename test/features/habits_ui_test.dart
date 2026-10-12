@@ -27,11 +27,13 @@ Future<void> openDetailFromManage(WidgetTester tester, String name) async {
   await tester.pumpAndSettle();
 }
 
-/// Adds the default (water) habit; ends on the Healthy Habits screen.
+/// Adds the default (water) habit through Manage; ends on the Healthy
+/// Habits screen.
 Future<void> addDefaultHabit(WidgetTester tester) async {
   await startNewHabit(tester);
   await tester.tap(find.text('Save'));
   await tester.pumpAndSettle();
+  await goBack(tester); // from Manage
 }
 
 void main() {

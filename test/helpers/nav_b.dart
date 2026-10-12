@@ -18,7 +18,9 @@ Future<void> openAccountRow(WidgetTester tester, String label) async {
   // The hub has two entries; rows live one level down (R10).
   final target = label == 'Notifications' ? 'Reminders' : label;
   await tester.tap(
-    find.text(profileRows.contains(target) ? 'Profile Management' : 'App Management'),
+    find.text(
+      profileRows.contains(target) ? 'Profile Management' : 'App Management',
+    ),
   );
   await tester.pumpAndSettle();
   await tester.tap(find.text(target));

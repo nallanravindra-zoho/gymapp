@@ -7,6 +7,7 @@ import '../../data/app_database.dart';
 import '../../data/providers.dart';
 import '../../data/tables/tables.dart';
 import '../reminders/reminder_providers.dart';
+import 'habit_actions.dart';
 import 'habit_defaults.dart';
 import 'reminder_config.dart';
 
@@ -177,6 +178,8 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
         reminderConfig: _config.toJson(),
       );
     }
+    // The app-wide listener is paused while this screen covers the main one.
+    await refreshReminders(ref);
     if (!mounted) return;
     Navigator.pop(context);
   }

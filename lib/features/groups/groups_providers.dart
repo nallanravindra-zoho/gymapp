@@ -75,12 +75,14 @@ final groupTabsProvider = FutureProvider.family<Set<GroupTab>, String>((
   return ref.watch(groupsRemoteProvider).availableTabs(groupId, week);
 }, retry: _noRetry);
 
-final groupOverallProvider =
-    FutureProvider.family<List<OverallEntry>, String>((ref, groupId) async {
-      final week = ref.watch(groupWeekStartProvider);
-      if (week == null) return const [];
-      return ref.watch(groupsRemoteProvider).overallBoard(groupId, week);
-    }, retry: _noRetry);
+final groupOverallProvider = FutureProvider.family<List<OverallEntry>, String>((
+  ref,
+  groupId,
+) async {
+  final week = ref.watch(groupWeekStartProvider);
+  if (week == null) return const [];
+  return ref.watch(groupsRemoteProvider).overallBoard(groupId, week);
+}, retry: _noRetry);
 
 final groupCategoryBoardProvider =
     FutureProvider.family<List<CategoryEntry>, (String, GroupCategory)>((

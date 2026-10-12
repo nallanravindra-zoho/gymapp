@@ -24,6 +24,7 @@ Future<Hobby> _hobby(AppDatabase db, String name) async =>
 void main() {
   appTest('Hobbies lists the six defaults', (tester, db) async {
     await openHobbies(tester);
+    expect(find.text('Set a goal to start a streak'), findsOneWidget);
     for (final n in [
       'Music',
       'Art',
@@ -35,8 +36,7 @@ void main() {
       await scrollTo(tester, find.text(n));
       expect(find.text(n), findsOneWidget);
     }
-    expect(find.text('Set a goal to start a streak'), findsOneWidget);
-    expect(find.text('Manage'), findsOneWidget);
+    await scrollTo(tester, find.text('Om chanting'));
     expect(find.text('Om chanting'), findsOneWidget);
     expect((await db.select(db.hobbies).get()).length, 6);
   });

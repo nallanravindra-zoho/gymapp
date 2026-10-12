@@ -47,14 +47,18 @@ class SupabaseGroupsRemote implements GroupsRemote {
   });
 
   @override
-  Future<Group> createGroup(String name, {GroupSharing? sharing}) => _run(() async {
-    final row = await _client.rpc(
-      'create_group',
-      params: {'p_name': name, if (sharing != null) 'p_share': sharing.toJson()},
-    );
-    return _group(Map<String, Object?>.from(row as Map))
-        .copyWith(memberCount: 1);
-  });
+  Future<Group> createGroup(String name, {GroupSharing? sharing}) =>
+      _run(() async {
+        final row = await _client.rpc(
+          'create_group',
+          params: {
+            'p_name': name,
+            if (sharing != null) 'p_share': sharing.toJson(),
+          },
+        );
+        return _group(Map<String, Object?>.from(row as Map))
+            .copyWith(memberCount: 1);
+      });
 
   @override
   Future<InvitePreview> previewInvite(String code) => _run(() async {
@@ -72,15 +76,20 @@ class SupabaseGroupsRemote implements GroupsRemote {
   });
 
   @override
-  Future<String> joinGroup(String code, {GroupSharing? sharing}) => _run(() async {
-    final id = await _client.rpc(
-      'join_group',
-      params: {'p_code': code, if (sharing != null) 'p_share': sharing.toJson()},
-    );
-    // A wrong code returns nothing (the server records the attempt).
-    if (id == null) throw const GroupsException(GroupsProblem.inviteNotFound);
-    return id as String;
-  });
+  Future<String> joinGroup(String code, {GroupSharing? sharing}) => _run(
+    () async {
+      final id = await _client.rpc(
+        'join_group',
+        params: {
+          'p_code': code,
+          if (sharing != null) 'p_share': sharing.toJson(),
+        },
+      );
+      // A wrong code returns nothing (the server records the attempt).
+      if (id == null) throw const GroupsException(GroupsProblem.inviteNotFound);
+      return id as String;
+    },
+  );
 
   @override
   Future<List<GroupMember>> roster(String groupId) => _run(() async {
@@ -181,7 +190,9 @@ class SupabaseGroupsRemote implements GroupsRemote {
           userId: (r as Map)['user_id'] as String,
           displayName: r['display_name'] as String? ?? '',
           rank: (r['rank'] as num).toInt(),
-          metrics: Map<String, Object?>.from((r['metrics'] as Map?) ?? const {}),
+          metrics: Map<String, Object?>.from(
+            (r['metrics'] as Map?) ?? const {},
+          ),
         ),
     ];
   });
@@ -235,22 +246,21 @@ class SupabaseGroupsRemote implements GroupsRemote {
     bool? sleep,
     bool? screenTime,
     bool? hobbies,
-  }) =>
-      _run(() async {
-        final changes = <String, Object?>{
-          'share_workouts': ?workouts,
-          'share_breaks': ?breaks,
-          'share_sleep': ?sleep,
-          'share_screen_time': ?screenTime,
-          'share_hobbies': ?hobbies,
-        };
-        if (changes.isEmpty) return;
-        await _client
-            .from('group_members')
-            .update(changes)
-            .eq('group_id', groupId)
-            .eq('user_id', _me);
-      });
+  }) => _run(() async {
+    final changes = <String, Object?>{
+      'share_workouts': ?workouts,
+      'share_breaks': ?breaks,
+      'share_sleep': ?sleep,
+      'share_screen_time': ?screenTime,
+      'share_hobbies': ?hobbies,
+    };
+    if (changes.isEmpty) return;
+    await _client
+        .from('group_members')
+        .update(changes)
+        .eq('group_id', groupId)
+        .eq('user_id', _me);
+  });
 
   @override
   Future<void> rename(String groupId, String name) => _run(() async {

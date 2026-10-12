@@ -285,10 +285,19 @@ List<MetricLine> describeMetrics(
         (label: 'Days logged', value: '${n('days').round()}'),
         (label: 'Average a day', value: _duration(n('average_minutes'))),
         (label: 'Average limit', value: _duration(n('average_limit_minutes'))),
-        (label: 'Days within limit', value: '${n('days_within_limit').round()}'),
+        (
+          label: 'Days within limit',
+          value: '${n('days_within_limit').round()}',
+        ),
       ];
   }
 }
+
+/// A day's main figure as text, for the per-day list.
+String dayAmountText(GroupCategory category, num amount) =>
+    category == GroupCategory.habits
+    ? _plural(amount, 'goal met', 'goals met')
+    : _duration(amount);
 
 /// One line for a list row.
 String metricsSummary(GroupCategory category, Map<String, Object?> m) {

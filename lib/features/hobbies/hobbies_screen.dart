@@ -6,6 +6,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/time/local_date.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
+import '../../data/tables/tables.dart';
 import '../week/week_providers.dart';
 import 'chant_screen.dart';
 import 'hobby_detail_screen.dart';
@@ -152,7 +153,9 @@ class _StreakCard extends ConsumerWidget {
         activities: acts,
         weekStart: weekStartOf(today),
       );
-      final daily = goals.values.where((g) => g.period.name == 'daily').length;
+      final daily = goals.values
+          .where((g) => g.period == HobbyGoalPeriod.daily)
+          .length;
       final weekly = goals.length - daily;
       final parts = <String>[
         if (weekly > 0) 'Weekly goals met: ${weeklyMet.length} of $weekly',

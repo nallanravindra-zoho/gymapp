@@ -69,8 +69,7 @@ class MetricsActions {
     final user = await _ref.read(currentUserProvider.future);
     final repo = _ref.read(bodyMeasurementRepositoryProvider);
     final latest = await repo.latest(user.id);
-    final fresh = await _ref.read(userRepositoryProvider).watchUser().first;
-    if (fresh == null) return;
+    final fresh = await _ref.read(userRepositoryProvider).ensureUser();
     final cadence = MeasurementCadence.parse(fresh.measurementCadence);
     String? due = fresh.nextMeasurementDue;
     if (latest != null) due = nextMeasurementDue(latest.localDate, cadence);

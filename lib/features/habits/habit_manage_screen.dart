@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
+import 'habit_actions.dart';
 import 'habit_defaults.dart';
 import 'habit_detail_screen.dart';
 import 'habit_providers.dart';
@@ -140,6 +141,7 @@ class _ManageRow extends ConsumerWidget {
               await ref
                   .read(habitRepositoryProvider)
                   .update(habit.id, HabitsCompanion(isActive: Value(archived)));
+              await refreshReminders(ref);
               if (!context.mounted) return;
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()

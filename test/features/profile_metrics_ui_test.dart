@@ -233,6 +233,7 @@ void main() {
       expect(rows.single.waistIn, 32.5);
       expect(rows.single.hipsIn, isNull);
       expect(rows.single.bmi, closeTo(22.86, 0.01));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.textContaining('Waist 32.5 in'),
         200,
@@ -242,6 +243,8 @@ void main() {
       // Next measurements are due a month after the record (default cadence).
       expect(u.nextMeasurementDue, '2026-06-13');
 
+      await tester.drag(topScroller(), const Offset(0, -200));
+      await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Waist 32.5 in'));
       await tester.pumpAndSettle();
       await field(tester, 'Waist (inches)', '31');

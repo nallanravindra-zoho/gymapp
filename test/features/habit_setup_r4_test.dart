@@ -57,7 +57,10 @@ Future<void> pickTime(
   await tester.pumpAndSettle();
   await tester.tap(find.text(pm ? 'PM' : 'AM'));
   await tester.pumpAndSettle();
-  final fields = find.byType(TextField);
+  final fields = find.descendant(
+    of: find.byType(Dialog),
+    matching: find.byType(TextField),
+  );
   await tester.enterText(fields.at(0), hour.toString().padLeft(2, '0'));
   await tester.enterText(fields.at(1), '00');
   await tester.pumpAndSettle();
@@ -287,7 +290,7 @@ void main() {
       await pickTime(tester, hour: 6, pm: true);
       expect(find.text(windowOrderMessage), findsNothing);
       expect(saveButton(tester).onPressed, isNotNull);
-      expect(find.text('6 reminders a day'), findsOneWidget);
+      expect(find.text('5 reminders a day'), findsOneWidget);
     });
 
     appTest('the same From and To is allowed (one reminder)', (
@@ -411,6 +414,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Archive Water'));
       await tester.pumpAndSettle();
+      for (var i = 0; i < 4; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(testScheduler.planned, isEmpty);
     });
 

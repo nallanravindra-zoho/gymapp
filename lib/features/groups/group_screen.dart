@@ -8,6 +8,7 @@ import '../../data/providers.dart';
 import '../account/sync_providers.dart';
 import '../week/day_format.dart' show monthNames;
 import '../../core/widgets/app_widgets.dart';
+import 'group_categories_ui.dart';
 import 'group_settings_screen.dart';
 import 'groups_ui.dart';
 import 'groups_models.dart';
@@ -76,7 +77,7 @@ class GroupScreen extends ConsumerWidget {
             MediaQuery.paddingOf(context).bottom + 24,
           ),
           children: [
-            _LeaderboardSection(groupId: groupId, me: me),
+            _LeaderboardSection(groupId: groupId, me: me, names: names),
             const SizedBox(height: 24),
             Text('Activity', style: text.titleMedium),
             const SizedBox(height: 8),
@@ -84,7 +85,7 @@ class GroupScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             Text('Members', style: text.titleMedium),
             const SizedBox(height: 8),
-            _MembersSection(roster: roster, me: me),
+            _MembersSection(groupId: groupId, roster: roster, me: me),
           ],
         ),
       ),
@@ -92,16 +93,23 @@ class GroupScreen extends ConsumerWidget {
   }
 }
 
+/// This week's tabs: Overall and the categories that have enough shared data
+/// and that you share too (spec R9).
 class _LeaderboardSection extends ConsumerWidget {
-  const _LeaderboardSection({required this.groupId, required this.me});
+  const _LeaderboardSection({
+    required this.groupId,
+    required this.me,
+    required this.names,
+  });
   final String groupId;
   final String? me;
+  final Map<String, String> names;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final metric = ref.watch(leaderboardMetricProvider);
-    final board = ref.watch(groupLeaderboardProvider(groupId));
+    final tabsAsync = ref.watch(groupTabsProvider(groupId));
     final week = ref.watch(groupWeekStartProvider);
+    final selection = ref.watch(groupTabSelectionProvider(groupId));
     final text = Theme.of(context).textTheme;
     final muted = text.bodySmall?.copyWith(color: context.tokens.textMuted);
 
@@ -111,6 +119,192 @@ class _LeaderboardSection extends ConsumerWidget {
         Text('This week', style: text.titleMedium),
         if (week != null) Text(_weekRange(week), style: muted),
         const SizedBox(height: 12),
+        switch (tabsAsync) {
+          AsyncData(value: final tabs) when tabs.isEmpty => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Leaderboards appear here once at least 2 members share a '
+              'category and have logged something this week, and you share '
+              'it too. Choose what you share in group settings.',
+              style: muted,
+            ),
+          ),
+          AsyncData(value: final tabs) => _TabsBody(
+            groupId: groupId,
+            me: me,
+            names: names,
+            tabs: [
+              for (final t in GroupTab.values)
+                if (tabs.contains(t)) t,
+            ],
+            selected: selection,
+          ),
+          AsyncError() => Text('Could not load the leaderboard.', style: muted),
+          _ => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        },
+      ],
+    );
+  }
+}
+
+class _TabsBody extends ConsumerWidget {
+  const _TabsBody({
+    required this.groupId,
+    required this.me,
+    required this.names,
+    required this.tabs,
+    required this.selected,
+  });
+  final String groupId;
+  final String? me;
+  final Map<String, String> names;
+  final List<GroupTab> tabs;
+  final GroupTab? selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = selected != null && tabs.contains(selected)
+        ? selected!
+        : tabs.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GroupTabBar(
+          tabs: tabs,
+          selected: current,
+          onChanged: (t) =>
+              ref.read(groupTabSelectionProvider(groupId).notifier).select(t),
+        ),
+        const SizedBox(height: 10),
+        if (current == GroupTab.overall)
+          _OverallBody(groupId: groupId, me: me, names: names)
+        else
+          _CategoryBody(groupId: groupId, me: me, category: current.category!),
+      ],
+    );
+  }
+}
+
+class _OverallBody extends ConsumerWidget {
+  const _OverallBody({
+    required this.groupId,
+    required this.me,
+    required this.names,
+  });
+  final String groupId;
+  final String? me;
+  final Map<String, String> names;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final board = ref.watch(groupOverallProvider(groupId));
+    final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: context.tokens.textMuted);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(overallDisclosure, style: muted),
+        const SizedBox(height: 8),
+        switch (board) {
+          AsyncData(value: final entries) when entries.isEmpty => Text(
+            'No one is ranked yet.',
+            style: muted,
+          ),
+          AsyncData(value: final entries) => OverallBoardCard(
+            entries: entries,
+            me: me,
+            onOpen: (e) => showParticipantSheet(
+              context,
+              groupId: groupId,
+              userId: e.userId,
+              name: e.userId == me ? 'You' : memberName(e.displayName),
+              categories: e.categories,
+            ),
+          ),
+          AsyncError() => Text('Could not load the leaderboard.', style: muted),
+          _ => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        },
+      ],
+    );
+  }
+}
+
+class _CategoryBody extends ConsumerWidget {
+  const _CategoryBody({
+    required this.groupId,
+    required this.me,
+    required this.category,
+  });
+  final String groupId;
+  final String? me;
+  final GroupCategory category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final board = ref.watch(groupCategoryBoardProvider((groupId, category)));
+    final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: context.tokens.textMuted);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(categoryDisclosure, style: muted),
+        const SizedBox(height: 8),
+        switch (board) {
+          AsyncData(value: final entries) when entries.isEmpty => Text(
+            'No one is sharing ${category.label} yet.',
+            style: muted,
+          ),
+          AsyncData(value: final entries) => CategoryBoardCard(
+            category: category,
+            entries: entries,
+            me: me,
+            onOpen: (e) => showParticipantSheet(
+              context,
+              groupId: groupId,
+              userId: e.userId,
+              name: e.userId == me ? 'You' : memberName(e.displayName),
+              categories: [category],
+            ),
+          ),
+          AsyncError() => Text('Could not load the leaderboard.', style: muted),
+          _ => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        },
+        if (category == GroupCategory.workouts) ...[
+          const SizedBox(height: 20),
+          _WorkoutTotals(groupId: groupId, me: me),
+        ],
+      ],
+    );
+  }
+}
+
+/// The earlier weekly totals, kept inside the Workouts tab: Volume ranks by
+/// active minutes and Consistency by active days.
+class _WorkoutTotals extends ConsumerWidget {
+  const _WorkoutTotals({required this.groupId, required this.me});
+  final String groupId;
+  final String? me;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metric = ref.watch(leaderboardMetricProvider);
+    final board = ref.watch(groupLeaderboardProvider(groupId));
+    final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: context.tokens.textMuted);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Weekly totals', style: text.titleSmall),
+        const SizedBox(height: 8),
         PillTabs<LeaderboardMetric>(
           outlined: true,
           height: 42,
@@ -123,16 +317,16 @@ class _LeaderboardSection extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         switch (board) {
-          AsyncData(value: final entries) when entries.isEmpty => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('No one is sharing workouts yet.', style: muted),
+          AsyncData(value: final entries) when entries.isEmpty => Text(
+            'No one is sharing workouts yet.',
+            style: muted,
           ),
           AsyncData(value: final entries) => LeaderboardCard(
             entries: entries,
             metric: metric,
             me: me,
           ),
-          AsyncError() => Text('Could not load the leaderboard.', style: muted),
+          AsyncError() => Text('Could not load the totals.', style: muted),
           _ => const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
@@ -273,7 +467,12 @@ class _CheerButton extends StatelessWidget {
 }
 
 class _MembersSection extends StatelessWidget {
-  const _MembersSection({required this.roster, required this.me});
+  const _MembersSection({
+    required this.groupId,
+    required this.roster,
+    required this.me,
+  });
+  final String groupId;
   final AsyncValue<List<GroupMember>> roster;
   final String? me;
 
@@ -298,6 +497,18 @@ class _MembersSection extends StatelessWidget {
                       : memberName(members[i].displayName),
                 ),
                 trailing: members[i].isOwner ? const Text('Owner') : null,
+                onTap: () => showParticipantSheet(
+                  context,
+                  groupId: groupId,
+                  userId: members[i].userId,
+                  name: members[i].userId == me
+                      ? 'You'
+                      : memberName(members[i].displayName),
+                  categories: [
+                    for (final c in GroupCategory.values)
+                      if (members[i].shares(c)) c,
+                  ],
+                ),
               ),
             ],
           ],

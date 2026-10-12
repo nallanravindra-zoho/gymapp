@@ -3,7 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
+import '../reminders/reminder_providers.dart';
 import 'habit_providers.dart';
+
+/// Rebuilds the scheduled reminders now. The app-wide listener only runs
+/// while the main screen is showing, so screens pushed above it call this
+/// after changing a habit or its progress, to stop reminders for a habit that
+/// was just archived or has just met its target.
+Future<void> refreshReminders(WidgetRef ref) async {
+  try {
+    await ref.read(reminderServiceProvider).reschedule();
+  } catch (_) {
+    // Shown on the Reminders screen as the last problem; never blocks logging.
+  }
+}
 
 /// Records one completion and offers Undo. Copy: `Logged. Water 3 of 8.`
 Future<void> logHabitOnce(
@@ -19,6 +32,7 @@ Future<void> logHabitOnce(
     habit: habit,
     dayCutoffMinutes: user.dayCutoffMinutes,
   );
+  refreshReminders(ref);
   messenger
     ..clearSnackBars()
     ..showSnackBar(
@@ -28,7 +42,10 @@ Future<void> logHabitOnce(
         ),
         action: SnackBarAction(
           label: 'Undo',
-          onPressed: () => repo.deleteLog(logId),
+          onPressed: () async {
+            await repo.deleteLog(logId);
+            refreshReminders(ref);
+          },
         ),
       ),
     );

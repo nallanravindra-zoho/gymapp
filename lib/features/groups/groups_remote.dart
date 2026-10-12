@@ -75,7 +75,8 @@ class UnavailableGroupsRemote implements GroupsRemote {
   @override
   Future<List<Group>> listGroups() async => _no();
   @override
-  Future<Group> createGroup(String name, {GroupSharing? sharing}) async => _no();
+  Future<Group> createGroup(String name, {GroupSharing? sharing}) async =>
+      _no();
   @override
   Future<InvitePreview> previewInvite(String code) async => _no();
   @override
@@ -255,6 +256,22 @@ class FakeGroupsRemote implements GroupsRemote {
         shareScreenTime: shareScreenTime,
       ),
     );
+  }
+
+  /// Sets another member's switches (test set-up).
+  void setMemberSharing(
+    String groupId,
+    String userId, {
+    bool? workouts,
+    bool? habits,
+    bool? sleep,
+    bool? screenTime,
+  }) {
+    final m = _memberRow(groupId, userId)!;
+    if (workouts != null) m.shareWorkouts = workouts;
+    if (habits != null) m.shareBreaks = habits;
+    if (sleep != null) m.shareSleep = sleep;
+    if (screenTime != null) m.shareScreenTime = screenTime;
   }
 
   /// Gives a member weekly data in a category: [score] (0 to 10) is what the

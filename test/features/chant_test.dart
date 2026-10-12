@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,7 +15,6 @@ import 'package:wellbeing/features/hobbies/chant_save.dart';
 import 'package:wellbeing/features/hobbies/chant_controller.dart';
 import 'package:wellbeing/features/hobbies/chant_logic.dart';
 import 'package:wellbeing/features/hobbies/chant_platform.dart';
-import 'package:wellbeing/features/hobbies/chant_screen.dart';
 
 class FakeChantPlatform implements ChantPlatform {
   bool micAllowed = true;
