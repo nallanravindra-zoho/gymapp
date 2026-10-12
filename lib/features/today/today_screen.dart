@@ -15,6 +15,7 @@ import '../habits/habits_screen.dart';
 import '../screen_time/screen_time_providers.dart';
 import '../screen_time/screen_time_screen.dart';
 import '../sleep/sleep_providers.dart';
+import '../hobbies/hobbies_screen.dart';
 import '../sleep/sleep_screen.dart';
 import '../streaks/streak_card.dart';
 import '../streaks/streak_providers.dart';
@@ -354,6 +355,13 @@ class _TodaySummary extends ConsumerWidget {
             ? durationShort(screen?.totalMinutes ?? 0)
             : '${durationShort(screen?.totalMinutes ?? 0)} (goal ${durationShort(goal)})',
         onTap: () => open(const ScreenTimeScreen()),
+      ),
+      SummaryRow(
+        icon: Icons.self_improvement_rounded,
+        colors: context.tokens.cat(Cat.hobby),
+        title: 'Hobbies',
+        subtitle: 'Om chanting counter',
+        onTap: () => open(const HobbiesScreen()),
       ),
     ];
 
