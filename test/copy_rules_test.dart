@@ -68,4 +68,29 @@ void main() {
     expect(literals().length, greaterThan(500));
     expect(literals().any((l) => l.$3 == 'Delete account'), isTrue);
   });
+
+  test('the redesigned screens are scanned', () {
+    // Text from the Chat tab, the groups widgets, Insights and the Today
+    // header must be reachable by the scanner, so a stray "!" there fails
+    // the rules above.
+    final scanned = literals().toList();
+    bool has(String file, String text) => scanned.any(
+      (l) => l.$1.replaceAll(r'\', '/').endsWith(file) && l.$3 == text,
+    );
+    expect(
+      has('chat/chat_screen.dart', 'Here are your quick reports:'),
+      isTrue,
+    );
+    expect(has('chat/chat_reports.dart', 'Same as last week'), isTrue);
+    expect(has('groups/groups_screen.dart', 'Add group'), isTrue);
+    expect(has('groups/group_screen.dart', 'Consistency'), isTrue);
+    expect(has('insights/insights_screen.dart', 'Your patterns'), isTrue);
+    expect(has('today/today_text.dart', 'Good morning'), isTrue);
+    expect(
+      scanned.where(
+        (l) => l.$1.replaceAll(r'\', '/').endsWith('today/today_text.dart'),
+      ),
+      isNotEmpty,
+    );
+  });
 }

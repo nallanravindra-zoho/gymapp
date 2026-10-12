@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/nav_a.dart';
 import '../test_helpers.dart';
 
-Future<void> openWeek(WidgetTester tester) async {
-  await tester.tap(find.byIcon(Icons.calendar_view_week_outlined));
-  await tester.pumpAndSettle();
-}
+Future<void> openWeek(WidgetTester tester) => openWeekTab(tester);
 
-Future<void> logToday(WidgetTester tester, String type) async {
-  await tester.tap(find.text('Log workout'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(type));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Save'));
+/// Leaves the day summary screen, back to the week.
+Future<void> backToWeek(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Back'));
   await tester.pumpAndSettle();
 }
 
@@ -35,7 +30,7 @@ void main() {
     await openWeek(tester);
 
     expect(find.text('No workouts logged this week.'), findsNothing);
-    expect(find.text('30'), findsOneWidget); // active minutes
+    expect(find.text('30 min'), findsWidgets); // active minutes and the row
     expect(find.text('Active minutes'), findsOneWidget);
     expect(find.text('Active days'), findsOneWidget);
     expect(find.text('Yoga'), findsWidgets); // totals row and streaks row
@@ -44,12 +39,7 @@ void main() {
   appTest('two workouts on one day show a count badge', (tester, db) async {
     await logToday(tester, 'Yoga');
     await tester.pump(const Duration(seconds: 5)); // let the snackbar go
-    await tester.tap(find.text('Add manual entry'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Walk'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await logToday(tester, 'Walk');
     await openWeek(tester);
 
     expect(find.text('2'), findsWidgets); // badge and totals
@@ -64,12 +54,15 @@ void main() {
     await openWeek(tester);
     await tester.tap(find.bySemanticsLabel(RegExp('Thursday, 14 May')));
     await tester.pumpAndSettle();
+    expect(find.text('Daily Summary'), findsOneWidget);
     expect(find.text('Thursday, 14 May'), findsOneWidget);
     expect(find.text('No workouts logged this day.'), findsOneWidget);
 
     await tester.tap(find.text('Mark rest day'));
     await tester.pumpAndSettle();
     expect(find.text('Rest day recorded.'), findsOneWidget);
+    expect(find.text('A rest day'), findsOneWidget);
+    await backToWeek(tester);
     expect(find.byIcon(Icons.bedtime_outlined), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel(RegExp('Thursday, 14 May')));
@@ -77,6 +70,8 @@ void main() {
     expect(find.text('Remove rest day'), findsOneWidget);
     await tester.tap(find.text('Remove rest day'));
     await tester.pumpAndSettle();
+    expect(find.text('Rest day removed.'), findsOneWidget);
+    await backToWeek(tester);
     expect(find.byIcon(Icons.bedtime_outlined), findsNothing);
   });
 
@@ -96,6 +91,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
+      await backToWeek(tester);
     }
     expect(find.byIcon(Icons.bedtime_outlined), findsNWidgets(2));
   });
@@ -124,10 +120,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add workout'));
     await tester.pumpAndSettle();
+    // Opened for a past day, the form is already in manual mode.
+    expect(find.text('Start'), findsOneWidget);
     await tester.tap(find.text('Run'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await tapSave(tester);
 
     final rows = await db.select(db.workouts).get();
     expect(rows.single.localDate, '2026-05-11');

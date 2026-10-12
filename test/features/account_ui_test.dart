@@ -7,6 +7,7 @@ import 'package:wellbeing/data/sync/remote_store.dart';
 import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/features/account/auth_service.dart';
 
+import '../helpers/nav_b.dart';
 import '../test_helpers.dart';
 
 const signedIn = AccountUser(
@@ -22,10 +23,8 @@ FakeAuthService fake() => testAuth as FakeAuthService;
 FakeRemoteStore serverFor(FakeAuthService auth) =>
     FakeRemoteStore(accountId: () => auth.currentUser?.id);
 
-Future<void> openAccount(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Profile and settings').first);
-  await tester.pumpAndSettle();
-}
+/// Avatar -> Profile & Settings -> Account & sync.
+Future<void> openAccount(WidgetTester tester) => openSyncAccount(tester);
 
 Future<void> addWorkout(
   AppDatabase db, {
@@ -51,7 +50,7 @@ void main() {
       db,
     ) async {
       await openAccount(tester);
-      expect(find.text('Account'), findsOneWidget);
+      expect(find.text('Account & sync'), findsOneWidget);
       expect(find.text('Back up and sync'), findsOneWidget);
       expect(find.textContaining('works without an account'), findsOneWidget);
       expect(find.text('Continue with Google'), findsOneWidget);

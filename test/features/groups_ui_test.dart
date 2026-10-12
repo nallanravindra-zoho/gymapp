@@ -9,6 +9,7 @@ import 'package:wellbeing/features/groups/groups_providers.dart';
 import 'package:wellbeing/features/groups/groups_remote.dart';
 import 'package:wellbeing/features/groups/groups_screen.dart';
 
+import '../helpers/nav_c.dart';
 import '../test_helpers.dart';
 
 const me = 'me';
@@ -63,17 +64,7 @@ Future<void> typeInto(WidgetTester tester, String text) async {
 }
 
 /// Names shown in the leaderboard card, top to bottom.
-List<String> leaderboardRows(WidgetTester tester) {
-  final tiles = find.descendant(
-    of: find.byType(Card).first,
-    matching: find.byType(ListTile),
-  );
-  return [
-    for (final t in tiles.evaluate())
-      '${(((t.widget) as ListTile).leading as SizedBox).child is Text ? ((((t.widget) as ListTile).leading as SizedBox).child as Text).data : ''}'
-          ' ${(((t.widget) as ListTile).title as Text).data}',
-  ];
-}
+List<String> leaderboardRows(WidgetTester tester) => leaderboardRowsOf(tester);
 
 void main() {
   group('before there is a group', () {
@@ -86,6 +77,9 @@ void main() {
       expect(find.textContaining('never shared'), findsOneWidget);
       expect(find.text('Create group'), findsNothing);
       await tester.tap(find.text('Sign in'));
+      await tester.pumpAndSettle();
+      // Sign in opens the profile hub; sign-in itself is under Account & sync.
+      await tester.tap(find.text('Account & sync'));
       await tester.pumpAndSettle();
       expect(find.text('Continue with Google'), findsOneWidget);
     });
@@ -156,7 +150,7 @@ void main() {
 
         await tester.pageBack();
         await tester.pumpAndSettle();
-        expect(find.text('1 member'), findsOneWidget);
+        expect(find.textContaining('1 member'), findsOneWidget);
       },
       auth: signedInAuth(),
       groups: server(),
@@ -349,8 +343,9 @@ void main() {
       'a group you are already in just opens',
       (tester, db) async {
         await openGroupsTab(tester);
-        await tester.tap(find.text('Join with a code'));
-        await tester.pumpAndSettle();
+        // Already in a group, so the join option lives behind the + action.
+        expect(find.text('Join with a code'), findsNothing);
+        await addGroupAction(tester, 'Join with a code');
         await typeInto(tester, '1111');
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
@@ -368,7 +363,9 @@ void main() {
       (tester, db) async {
         await openGroupsTab(tester);
         expect(find.text('Sunday crew'), findsOneWidget);
-        expect(find.text('3 members'), findsOneWidget);
+        expect(find.textContaining('3 members'), findsOneWidget);
+        // The first group's leaderboard preview is on the same screen.
+        expect(find.text('Leaderboards'), findsOneWidget);
       },
       auth: signedInAuth(),
       groups: withCrew(),

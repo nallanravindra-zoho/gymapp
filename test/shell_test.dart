@@ -12,7 +12,7 @@ void main() {
     for (final label in ['Today', 'Week', 'Groups', 'Insights', 'Chat']) {
       expect(find.text(label), findsWidgets);
     }
-    await tester.tap(find.byIcon(Icons.group_outlined));
+    await tester.tap(find.byIcon(Icons.groups_outlined));
     await tester.pumpAndSettle();
     expect(find.text('Groups need an account'), findsOneWidget);
   });

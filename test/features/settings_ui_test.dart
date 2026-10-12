@@ -12,6 +12,7 @@ import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/features/account/auth_service.dart';
 import 'package:wellbeing/features/groups/groups_remote.dart';
 
+import '../helpers/nav_b.dart';
 import '../test_helpers.dart';
 
 FakeAuthService signedInAuth({String? name = 'Divya Account'}) =>
@@ -19,12 +20,10 @@ FakeAuthService signedInAuth({String? name = 'Divya Account'}) =>
       signedIn: AccountUser(id: 'acct-1', displayName: name),
     );
 
-Future<void> openSettings(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Profile and settings').first);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Settings'));
-  await tester.pumpAndSettle();
-}
+/// Opens one section of Profile & Settings: 'My profile',
+/// 'Goals & preferences', 'Notifications' or 'Privacy & data'.
+Future<void> openSettings(WidgetTester tester, String section) =>
+    openSettingsSection(tester, section);
 
 Future<User> user(AppDatabase db) =>
     UserRepository(db, FixedClock(testNow)).ensureUser();
@@ -62,7 +61,7 @@ Future<void> scrollTo(WidgetTester tester, String text) async {
 void main() {
   group('profile and look', () {
     appTest('the name is saved on the profile', (tester, db) async {
-      await openSettings(tester);
+      await openSettings(tester, 'My profile');
       expect(find.text('Not set'), findsOneWidget);
       await tester.tap(find.text('Name'));
       await tester.pumpAndSettle();
@@ -76,7 +75,7 @@ void main() {
     appTest('dark mode is applied and remembered', (tester, db) async {
       MaterialApp app() => tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(app().themeMode, ThemeMode.system);
-      await openSettings(tester);
+      await openSettings(tester, 'Goals & preferences');
       await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
       expect(app().themeMode, ThemeMode.dark);
@@ -89,7 +88,7 @@ void main() {
 
   group('reminder and streak settings', () {
     appTest('quiet hours show the defaults', (tester, db) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Notifications');
       expect(find.text('10:00 PM'), findsOneWidget);
       expect(find.text('7:00 AM'), findsOneWidget);
     });
@@ -98,7 +97,7 @@ void main() {
       tester,
       db,
     ) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Notifications');
       await scrollTo(tester, 'Most reminders in a day');
       await tester.tap(find.byTooltip('More: Most reminders in a day'));
       await tester.pumpAndSettle();
@@ -123,7 +122,7 @@ void main() {
       tester,
       db,
     ) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Goals & preferences');
       await scrollTo(tester, 'Rest days per week');
       await tester.tap(find.byTooltip('Less: Rest days per week'));
       await tester.pumpAndSettle();
@@ -141,7 +140,7 @@ void main() {
     });
 
     appTest('the start of the day is configurable', (tester, db) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Goals & preferences');
       await scrollTo(tester, 'A new day starts at');
       expect(find.text('00:00'), findsOneWidget);
       await tester.tap(find.byTooltip('More: A new day starts at'));
@@ -156,7 +155,7 @@ void main() {
   group('export', () {
     appTest('all data goes out as a JSON file', (tester, db) async {
       await addWorkout(db);
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Export all data');
       await tester.tap(find.text('Export all data'));
       await tester.pumpAndSettle();
@@ -169,7 +168,7 @@ void main() {
 
     appTest('workouts go out as a CSV file', (tester, db) async {
       await addWorkout(db);
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Export workouts');
       await tester.tap(find.text('Export workouts'));
       await tester.pumpAndSettle();
@@ -180,7 +179,7 @@ void main() {
     });
 
     appTest('a file that cannot be made is explained', (tester, db) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Export all data');
       testExport.fail = true;
       await tester.tap(find.text('Export all data'));
@@ -203,7 +202,7 @@ void main() {
         db,
         FixedClock(testNow),
       ).update(u.id, const UsersCompanion(displayName: Value('Divya')));
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Erase data on this phone');
       await tester.tap(find.text('Erase data on this phone'));
       await tester.pumpAndSettle();
@@ -227,7 +226,7 @@ void main() {
       tester,
       db,
     ) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Export workouts');
       expect(find.text('Delete account'), findsNothing);
     });
@@ -237,7 +236,7 @@ void main() {
     appTest(
       'only signed-in people see it, and not the erase option',
       (tester, db) async {
-        await openSettings(tester);
+        await openSettings(tester, 'Privacy & data');
         await scrollTo(tester, 'Delete account');
         expect(find.text('Delete account'), findsOneWidget);
         expect(find.text('Erase data on this phone'), findsNothing);
@@ -247,7 +246,7 @@ void main() {
     );
 
     appTest('cancelling deletes nothing', (tester, db) async {
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Delete account');
       await tester.tap(find.text('Delete account'));
       await tester.pumpAndSettle();
@@ -264,7 +263,7 @@ void main() {
     ) async {
       await addWorkout(db);
       await testSyncState.setAccountId('acct-1');
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Delete account');
       await tester.tap(find.text('Delete account'));
       await tester.pumpAndSettle();
@@ -291,7 +290,7 @@ void main() {
     ) async {
       (testAuth as FakeAuthService).deleteSucceeds = false;
       await testSyncState.setAccountId('acct-1');
-      await openSettings(tester);
+      await openSettings(tester, 'Privacy & data');
       await scrollTo(tester, 'Delete account');
       await tester.tap(find.text('Delete account'));
       await tester.pumpAndSettle();
