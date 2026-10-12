@@ -20,6 +20,7 @@ Workout w(String type, String date, int minutes, {int hour = 9}) {
     source: WorkoutSource.manual,
     tzOffsetMinutes: 0,
     localDate: date,
+    pausedSeconds: 0,
   );
 }
 

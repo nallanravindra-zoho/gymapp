@@ -8,6 +8,8 @@ String _iso(DateTime d) => d.toUtc().toIso8601String();
 DateTime _ts(Object? v) => DateTime.parse(v as String).toUtc();
 DateTime? _tsOrNull(Object? v) => v == null ? null : _ts(v);
 int _int(Object? v) => (v as num).toInt();
+int? _intOrNull(Object? v) => v == null ? null : _int(v);
+double? _realOrNull(Object? v) => v == null ? null : (v as num).toDouble();
 
 /// One table's translation between local rows and server rows.
 ///
@@ -42,6 +44,10 @@ const syncTables = <SyncTable>[
   WorkoutsSync(),
   HabitsSync(),
   HabitLogsSync(),
+  HabitSkipsSync(),
+  HobbiesSync(),
+  HobbyLogsSync(),
+  BodyMeasurementsSync(),
   SleepTargetsSync(),
   SleepLogsSync(),
   RestDaysSync(),
@@ -80,6 +86,15 @@ class ProfilesSync extends SyncTable {
           'weekly_rest_days': u.weeklyRestDays,
           'freeze_enabled': u.freezeEnabled,
           'freeze_interval_days': u.freezeIntervalDays,
+          'date_of_birth': u.dateOfBirth,
+          'gender': u.gender,
+          'height_cm': u.heightCm,
+          'weight_kg': u.weightKg,
+          'measurement_cadence': u.measurementCadence,
+          'measurement_reminder_enabled': u.measurementReminderEnabled,
+          'next_measurement_due': u.nextMeasurementDue,
+          'reminder_sound': u.reminderSound,
+          'habit_threshold': u.habitThreshold,
           'created_at': _iso(u.createdAt),
           'updated_at': _iso(u.updatedAt),
           'deleted_at': null,
@@ -113,6 +128,19 @@ class ProfilesSync extends SyncTable {
         weeklyRestDays: Value(_int(r['weekly_rest_days'])),
         freezeEnabled: Value(r['freeze_enabled'] as bool),
         freezeIntervalDays: Value(_int(r['freeze_interval_days'])),
+        dateOfBirth: Value(r['date_of_birth'] as String?),
+        gender: Value(r['gender'] as String?),
+        heightCm: Value(_realOrNull(r['height_cm'])),
+        weightKg: Value(_realOrNull(r['weight_kg'])),
+        measurementCadence: Value(
+          r['measurement_cadence'] as String? ?? 'monthly',
+        ),
+        measurementReminderEnabled: Value(
+          r['measurement_reminder_enabled'] as bool? ?? true,
+        ),
+        nextMeasurementDue: Value(r['next_measurement_due'] as String?),
+        reminderSound: Value(r['reminder_sound'] as String?),
+        habitThreshold: Value(_intOrNull(r['habit_threshold']) ?? 1),
         updatedAt: Value(updated),
       ),
     );
@@ -204,6 +232,14 @@ class WorkoutsSync extends SyncTable {
           'source': w.source.name,
           'tz_offset_minutes': w.tzOffsetMinutes,
           'local_date': w.localDate,
+          'calories_estimate': w.caloriesEstimate,
+          'steps': w.steps,
+          'steps_source': w.stepsSource,
+          'distance_km': w.distanceKm,
+          'avg_speed_kmh': w.avgSpeedKmh,
+          'paused_seconds': w.pausedSeconds,
+          'active_seconds': w.activeSeconds,
+          'metrics_note': w.metricsNote,
           'created_at': _iso(w.createdAt),
           'updated_at': _iso(w.updatedAt),
           'deleted_at': w.deletedAt == null ? null : _iso(w.deletedAt!),
@@ -238,6 +274,14 @@ class WorkoutsSync extends SyncTable {
             source: Value(WorkoutSource.values.byName(r['source'] as String)),
             tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
             localDate: Value(r['local_date'] as String),
+            caloriesEstimate: Value(_intOrNull(r['calories_estimate'])),
+            steps: Value(_intOrNull(r['steps'])),
+            stepsSource: Value(r['steps_source'] as String?),
+            distanceKm: Value(_realOrNull(r['distance_km'])),
+            avgSpeedKmh: Value(_realOrNull(r['avg_speed_kmh'])),
+            pausedSeconds: Value(_intOrNull(r['paused_seconds']) ?? 0),
+            activeSeconds: Value(_intOrNull(r['active_seconds'])),
+            metricsNote: Value(r['metrics_note'] as String?),
             createdAt: Value(_ts(r['created_at'])),
             updatedAt: Value(updated),
             deletedAt: Value(_tsOrNull(r['deleted_at'])),
@@ -652,6 +696,8 @@ class ScreenTimeDailySync extends SyncTable {
           'category_minutes': s.categoryMinutes,
           'late_evening_minutes': s.lateEveningMinutes,
           'share_in_groups': s.shareInGroups,
+          'source': s.source.name,
+          'target_minutes': s.targetMinutes,
           'created_at': _iso(s.createdAt),
           'updated_at': _iso(s.updatedAt),
           'deleted_at': s.deletedAt == null ? null : _iso(s.deletedAt!),
@@ -699,6 +745,359 @@ class ScreenTimeDailySync extends SyncTable {
             categoryMinutes: Value(r['category_minutes'] as String),
             lateEveningMinutes: Value(_int(r['late_evening_minutes'])),
             shareInGroups: Value(r['share_in_groups'] as bool),
+            source: Value(
+              ScreenTimeSource.values.byName(
+                r['source'] as String? ?? 'automatic',
+              ),
+            ),
+            targetMinutes: Value(_intOrNull(r['target_minutes'])),
+            createdAt: Value(_ts(r['created_at'])),
+            updatedAt: Value(updated),
+            deletedAt: Value(_tsOrNull(r['deleted_at'])),
+          ),
+        );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class HabitSkipsSync extends SyncTable {
+  const HabitSkipsSync();
+  @override
+  String get name => 'habit_skips';
+
+  @override
+  Future<List<Json>> localChanges(
+    AppDatabase db,
+    DateTime? since,
+    String remoteUserId,
+  ) async {
+    final q = db.select(db.habitSkips);
+    if (since != null) q.where((x) => x.updatedAt.isBiggerOrEqualValue(since));
+    return [
+      for (final k in await q.get())
+        {
+          'id': k.id,
+          'user_id': remoteUserId,
+          'habit_id': k.habitId,
+          'skipped_at': _iso(k.skippedAt),
+          'tz_offset_minutes': k.tzOffsetMinutes,
+          'local_date': k.localDate,
+          'created_at': _iso(k.createdAt),
+          'updated_at': _iso(k.updatedAt),
+          'deleted_at': k.deletedAt == null ? null : _iso(k.deletedAt!),
+        },
+    ];
+  }
+
+  @override
+  Future<bool> applyRemote(AppDatabase db, Json r, String localUserId) async {
+    final existing = await (db.select(
+      db.habitSkips,
+    )..where((x) => x.id.equals(r['id'] as String))).getSingleOrNull();
+    final updated = _ts(r['updated_at']);
+    if (existing != null && !updated.isAfter(existing.updatedAt)) return false;
+    await db
+        .into(db.habitSkips)
+        .insertOnConflictUpdate(
+          HabitSkipsCompanion(
+            id: Value(r['id'] as String),
+            userId: Value(localUserId),
+            habitId: Value(r['habit_id'] as String),
+            skippedAt: Value(_ts(r['skipped_at'])),
+            tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
+            localDate: Value(r['local_date'] as String),
+            createdAt: Value(_ts(r['created_at'])),
+            updatedAt: Value(updated),
+            deletedAt: Value(_tsOrNull(r['deleted_at'])),
+          ),
+        );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class HobbiesSync extends SyncTable {
+  const HobbiesSync();
+  @override
+  String get name => 'hobbies';
+
+  @override
+  Future<List<Json>> localChanges(
+    AppDatabase db,
+    DateTime? since,
+    String remoteUserId,
+  ) async {
+    final q = db.select(db.hobbies);
+    if (since != null) q.where((x) => x.updatedAt.isBiggerOrEqualValue(since));
+    return [
+      for (final h in await q.get())
+        {
+          'id': h.id,
+          'user_id': remoteUserId,
+          'name': h.name,
+          'icon_key': h.iconKey,
+          'is_builtin': h.isBuiltin,
+          'goal_period': h.goalPeriod?.name,
+          'goal_value': h.goalValue,
+          'goal_unit': h.goalUnit.name,
+          'reminder_enabled': h.reminderEnabled,
+          'reminder_config': h.reminderConfig,
+          'is_active': h.isActive,
+          'created_at': _iso(h.createdAt),
+          'updated_at': _iso(h.updatedAt),
+          'deleted_at': h.deletedAt == null ? null : _iso(h.deletedAt!),
+        },
+    ];
+  }
+
+  @override
+  Future<bool> applyRemote(AppDatabase db, Json r, String localUserId) async {
+    final existing = await (db.select(
+      db.hobbies,
+    )..where((x) => x.id.equals(r['id'] as String))).getSingleOrNull();
+    final updated = _ts(r['updated_at']);
+    if (existing != null && !updated.isAfter(existing.updatedAt)) return false;
+    // Each device seeds the built-in hobbies on first use, so two devices
+    // hold different rows for "Music". Keep the row with the smaller id on
+    // both sides; the other is retired and its logs move to the kept one.
+    if (r['is_builtin'] == true && r['deleted_at'] == null) {
+      final twin =
+          await (db.select(db.hobbies)..where(
+                (h) =>
+                    h.userId.equals(localUserId) &
+                    h.isBuiltin.equals(true) &
+                    h.name.equals(r['name'] as String) &
+                    h.deletedAt.isNull() &
+                    h.id.equals(r['id'] as String).not(),
+              ))
+              .getSingleOrNull();
+      if (twin != null) {
+        if (twin.id.compareTo(r['id'] as String) < 0) {
+          // The local row is the one to keep. Remember the remote row as
+          // retired so its logs can be pointed at the kept one.
+          await db
+              .into(db.hobbies)
+              .insertOnConflictUpdate(
+                HobbiesCompanion(
+                  id: Value(r['id'] as String),
+                  userId: Value(localUserId),
+                  name: Value(r['name'] as String),
+                  iconKey: Value(r['icon_key'] as String),
+                  isBuiltin: const Value(true),
+                  createdAt: Value(_ts(r['created_at'])),
+                  updatedAt: Value(updated),
+                  deletedAt: Value(updated),
+                ),
+              );
+          return true;
+        }
+        final stamp = updated.isAfter(twin.updatedAt)
+            ? updated
+            : twin.updatedAt.add(const Duration(seconds: 1));
+        await (db.update(db.hobbies)..where((h) => h.id.equals(twin.id))).write(
+          HobbiesCompanion(deletedAt: Value(stamp), updatedAt: Value(stamp)),
+        );
+        final logs = await (db.select(
+          db.hobbyLogs,
+        )..where((l) => l.hobbyId.equals(twin.id))).get();
+        for (final l in logs) {
+          await (db.update(
+            db.hobbyLogs,
+          )..where((x) => x.id.equals(l.id))).write(
+            HobbyLogsCompanion(
+              hobbyId: Value(r['id'] as String),
+              updatedAt: Value(
+                stamp.isAfter(l.updatedAt)
+                    ? stamp
+                    : l.updatedAt.add(const Duration(seconds: 1)),
+              ),
+            ),
+          );
+        }
+      }
+    }
+    await db
+        .into(db.hobbies)
+        .insertOnConflictUpdate(
+          HobbiesCompanion(
+            id: Value(r['id'] as String),
+            userId: Value(localUserId),
+            name: Value(r['name'] as String),
+            iconKey: Value(r['icon_key'] as String),
+            isBuiltin: Value(r['is_builtin'] as bool),
+            goalPeriod: Value(
+              r['goal_period'] == null
+                  ? null
+                  : HobbyGoalPeriod.values.byName(r['goal_period'] as String),
+            ),
+            goalValue: Value(_intOrNull(r['goal_value'])),
+            goalUnit: Value(
+              HobbyGoalUnit.values.byName(r['goal_unit'] as String),
+            ),
+            reminderEnabled: Value(r['reminder_enabled'] as bool),
+            reminderConfig: Value(r['reminder_config'] as String),
+            isActive: Value(r['is_active'] as bool),
+            createdAt: Value(_ts(r['created_at'])),
+            updatedAt: Value(updated),
+            deletedAt: Value(_tsOrNull(r['deleted_at'])),
+          ),
+        );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class HobbyLogsSync extends SyncTable {
+  const HobbyLogsSync();
+  @override
+  String get name => 'hobby_logs';
+
+  @override
+  Future<List<Json>> localChanges(
+    AppDatabase db,
+    DateTime? since,
+    String remoteUserId,
+  ) async {
+    final q = db.select(db.hobbyLogs);
+    if (since != null) q.where((x) => x.updatedAt.isBiggerOrEqualValue(since));
+    return [
+      for (final l in await q.get())
+        {
+          'id': l.id,
+          'user_id': remoteUserId,
+          'hobby_id': l.hobbyId,
+          'started_at': _iso(l.startedAt),
+          'ended_at': l.endedAt == null ? null : _iso(l.endedAt!),
+          'duration_minutes': l.durationMinutes,
+          'count_or_sessions': l.countOrSessions,
+          'source': l.source.name,
+          'tz_offset_minutes': l.tzOffsetMinutes,
+          'local_date': l.localDate,
+          'note': l.note,
+          'created_at': _iso(l.createdAt),
+          'updated_at': _iso(l.updatedAt),
+          'deleted_at': l.deletedAt == null ? null : _iso(l.deletedAt!),
+        },
+    ];
+  }
+
+  @override
+  Future<bool> applyRemote(AppDatabase db, Json r, String localUserId) async {
+    final existing = await (db.select(
+      db.hobbyLogs,
+    )..where((x) => x.id.equals(r['id'] as String))).getSingleOrNull();
+    final updated = _ts(r['updated_at']);
+    if (existing != null && !updated.isAfter(existing.updatedAt)) return false;
+    // A log written against a built-in hobby this device retired in favour
+    // of its twin belongs to the twin.
+    var hobbyId = r['hobby_id'] as String;
+    final target = await (db.select(
+      db.hobbies,
+    )..where((h) => h.id.equals(hobbyId))).getSingleOrNull();
+    if (target != null && target.isBuiltin && target.deletedAt != null) {
+      final kept =
+          await (db.select(db.hobbies)..where(
+                (h) =>
+                    h.userId.equals(localUserId) &
+                    h.isBuiltin.equals(true) &
+                    h.name.equals(target.name) &
+                    h.deletedAt.isNull(),
+              ))
+              .getSingleOrNull();
+      if (kept != null) hobbyId = kept.id;
+    }
+    await db
+        .into(db.hobbyLogs)
+        .insertOnConflictUpdate(
+          HobbyLogsCompanion(
+            id: Value(r['id'] as String),
+            userId: Value(localUserId),
+            hobbyId: Value(hobbyId),
+            startedAt: Value(_ts(r['started_at'])),
+            endedAt: Value(_tsOrNull(r['ended_at'])),
+            durationMinutes: Value(_int(r['duration_minutes'])),
+            countOrSessions: Value(_int(r['count_or_sessions'])),
+            source: Value(HobbyLogSource.values.byName(r['source'] as String)),
+            tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
+            localDate: Value(r['local_date'] as String),
+            note: Value(r['note'] as String?),
+            createdAt: Value(_ts(r['created_at'])),
+            updatedAt: Value(updated),
+            deletedAt: Value(_tsOrNull(r['deleted_at'])),
+          ),
+        );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class BodyMeasurementsSync extends SyncTable {
+  const BodyMeasurementsSync();
+  @override
+  String get name => 'body_measurements';
+
+  @override
+  Future<List<Json>> localChanges(
+    AppDatabase db,
+    DateTime? since,
+    String remoteUserId,
+  ) async {
+    final q = db.select(db.bodyMeasurements);
+    if (since != null) q.where((x) => x.updatedAt.isBiggerOrEqualValue(since));
+    return [
+      for (final m in await q.get())
+        {
+          'id': m.id,
+          'user_id': remoteUserId,
+          'measured_at': _iso(m.measuredAt),
+          'tz_offset_minutes': m.tzOffsetMinutes,
+          'local_date': m.localDate,
+          'weight_kg': m.weightKg,
+          'height_cm': m.heightCm,
+          'bmi': m.bmi,
+          'waist_in': m.waistIn,
+          'hips_in': m.hipsIn,
+          'chest_in': m.chestIn,
+          'arm_in': m.armIn,
+          'thigh_in': m.thighIn,
+          'notes': m.notes,
+          'created_at': _iso(m.createdAt),
+          'updated_at': _iso(m.updatedAt),
+          'deleted_at': m.deletedAt == null ? null : _iso(m.deletedAt!),
+        },
+    ];
+  }
+
+  @override
+  Future<bool> applyRemote(AppDatabase db, Json r, String localUserId) async {
+    final existing = await (db.select(
+      db.bodyMeasurements,
+    )..where((x) => x.id.equals(r['id'] as String))).getSingleOrNull();
+    final updated = _ts(r['updated_at']);
+    if (existing != null && !updated.isAfter(existing.updatedAt)) return false;
+    await db
+        .into(db.bodyMeasurements)
+        .insertOnConflictUpdate(
+          BodyMeasurementsCompanion(
+            id: Value(r['id'] as String),
+            userId: Value(localUserId),
+            measuredAt: Value(_ts(r['measured_at'])),
+            tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
+            localDate: Value(r['local_date'] as String),
+            weightKg: Value(_realOrNull(r['weight_kg'])),
+            heightCm: Value(_realOrNull(r['height_cm'])),
+            bmi: Value(_realOrNull(r['bmi'])),
+            waistIn: Value(_realOrNull(r['waist_in'])),
+            hipsIn: Value(_realOrNull(r['hips_in'])),
+            chestIn: Value(_realOrNull(r['chest_in'])),
+            armIn: Value(_realOrNull(r['arm_in'])),
+            thighIn: Value(_realOrNull(r['thigh_in'])),
+            notes: Value(r['notes'] as String?),
             createdAt: Value(_ts(r['created_at'])),
             updatedAt: Value(updated),
             deletedAt: Value(_tsOrNull(r['deleted_at'])),

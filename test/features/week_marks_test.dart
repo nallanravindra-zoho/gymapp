@@ -31,6 +31,7 @@ Workout workout(String id, String date, int hour) => Workout(
   source: WorkoutSource.manual,
   tzOffsetMinutes: 0,
   localDate: date,
+  pausedSeconds: 0,
 );
 
 Habit habit(String id, {int target = 1}) => Habit(
@@ -86,6 +87,7 @@ ScreenTimeDailyData screen(String date, int minutes) => ScreenTimeDailyData(
   categoryMinutes: '{}',
   lateEveningMinutes: 0,
   shareInGroups: false,
+  source: ScreenTimeSource.automatic,
 );
 
 Map<String, DayMarks> build({

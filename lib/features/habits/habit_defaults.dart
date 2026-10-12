@@ -55,6 +55,26 @@ final habitDefaults = <HabitKind, HabitDefaults>{
       activeDays: _day,
     ),
   ),
+  HabitKind.moisturize: const HabitDefaults(
+    label: 'Moisturize',
+    icon: Icons.spa_rounded,
+    dailyTarget: 2,
+    config: ReminderConfig(
+      mode: ReminderMode.times,
+      times: [8 * 60, 21 * 60],
+      activeDays: _day,
+    ),
+  ),
+  HabitKind.skinCare: const HabitDefaults(
+    label: 'Skin care',
+    icon: Icons.face_retouching_natural_rounded,
+    dailyTarget: 2,
+    config: ReminderConfig(
+      mode: ReminderMode.times,
+      times: [8 * 60, 21 * 60],
+      activeDays: _day,
+    ),
+  ),
   HabitKind.custom: const HabitDefaults(
     label: 'Custom',
     icon: Icons.eco_rounded,
@@ -75,7 +95,7 @@ Cat habitCat(HabitKind kind) => switch (kind) {
   HabitKind.water => Cat.water,
   HabitKind.stand => Cat.habit,
   HabitKind.stretch => Cat.stretch,
-  HabitKind.custom => Cat.leaf,
+  HabitKind.moisturize || HabitKind.skinCare || HabitKind.custom => Cat.leaf,
 };
 
 /// "Every 2 hours", "Every 90 minutes", or the times of day.

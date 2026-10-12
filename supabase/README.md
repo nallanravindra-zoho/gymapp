@@ -16,6 +16,8 @@ fully offline with no account, and syncing is added on top once you sign in.
 | `tests/numeric_codes.sql` | Tests that old-format codes are replaced |
 | `migrations/20261011000000_four_digit_codes.sql` | Invite codes become 4 digits, with a limit of 5 wrong codes per 15 minutes per account |
 | `tests/four_digit_codes.sql` | Tests for the 4-digit codes and the guessing limit |
+| `migrations/20261012000000_revised_requirements.sql` | Revised requirements: hobbies, hobby logs, body measurements and habit skips (all private, with RLS and sync), new profile / workout / screen-time columns, two new habit kinds, and per-group sharing switches for sleep, screen time and hobbies (off by default). Safe to run twice |
+| `tests/revised_requirements.sql` | Behaviour tests for the above, including that body measurements are never visible to group mates and that deleting an account removes the new rows |
 | `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 
@@ -38,6 +40,12 @@ fully offline with no account, and syncing is added on top once you sign in.
 * **Private by default.** Row-level security limits every table to the signed-in
   owner. Sleep and screen time are never visible to anyone else. Group tables
   come later, with their own policies.
+* **Body measurements are never shared.** No group policy or function reads
+  `body_measurements`. Sleep, screen time and hobbies are shared with a group
+  only when the member switches that category on for that group
+  (`group_members.share_sleep`, `share_screen_time`, `share_hobbies`; all off
+  by default). Deleting an account removes the new tables' rows too, through
+  `on delete cascade`.
 * **Stays on the phone:** cached streaks, weekly insights, the tips library.
 
 Known limits, fine for a family-and-friends app: conflicts are decided by the
@@ -126,5 +134,18 @@ createdb wellbeing_groups
 for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql \
          migrations/20261008000000_groups.sql tests/groups.sql; do
   psql -v ON_ERROR_STOP=1 -d wellbeing_groups -f $f
+done
+
+# Revised requirements: every migration in order, the newest twice (it must be
+# re-runnable), then its tests (ends with: ALL CHECKS PASSED):
+createdb wellbeing_revised
+for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql \
+         migrations/20261008000000_groups.sql migrations/20261009000000_delete_account.sql \
+         migrations/20261010000000_numeric_invite_codes.sql \
+         migrations/20261011000000_four_digit_codes.sql \
+         migrations/20261012000000_revised_requirements.sql \
+         migrations/20261012000000_revised_requirements.sql \
+         tests/revised_requirements.sql; do
+  psql -v ON_ERROR_STOP=1 -d wellbeing_revised -f $f
 done
 ```

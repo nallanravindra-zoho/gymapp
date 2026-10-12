@@ -6,6 +6,31 @@ import '../../core/time/local_date.dart';
 import '../app_database.dart';
 import '../tables/tables.dart';
 
+/// Optional measurements saved with a workout (R3). Calories are always an
+/// estimate; [stepsSource] is `sensor` or `estimate`; [metricsNote] is
+/// `estimated` or `measured`.
+class WorkoutMetrics {
+  const WorkoutMetrics({
+    this.caloriesEstimate,
+    this.steps,
+    this.stepsSource,
+    this.distanceKm,
+    this.avgSpeedKmh,
+    this.pausedSeconds = 0,
+    this.activeSeconds,
+    this.metricsNote,
+  });
+
+  final int? caloriesEstimate;
+  final int? steps;
+  final String? stepsSource;
+  final double? distanceKm;
+  final double? avgSpeedKmh;
+  final int pausedSeconds;
+  final int? activeSeconds;
+  final String? metricsNote;
+}
+
 class WorkoutRepository {
   WorkoutRepository(this._db, this._clock);
 
@@ -58,6 +83,7 @@ class WorkoutRepository {
     required WorkoutSource source,
     WorkoutIntensity? intensity,
     String? note,
+    WorkoutMetrics? metrics,
   }) async {
     final now = _clock.now();
     final id = const Uuid().v4();
@@ -83,10 +109,34 @@ class WorkoutRepository {
               offsetMinutes: offset,
               cutoffMinutes: dayCutoffMinutes,
             ),
+            caloriesEstimate: Value(metrics?.caloriesEstimate),
+            steps: Value(metrics?.steps),
+            stepsSource: Value(metrics?.stepsSource),
+            distanceKm: Value(metrics?.distanceKm),
+            avgSpeedKmh: Value(metrics?.avgSpeedKmh),
+            pausedSeconds: Value(metrics?.pausedSeconds ?? 0),
+            activeSeconds: Value(metrics?.activeSeconds),
+            metricsNote: Value(metrics?.metricsNote),
           ),
         );
     return id;
   }
+
+  /// Replaces a workout's metrics (calories, steps, distance, speed, pauses).
+  Future<void> setMetrics(String id, WorkoutMetrics metrics) =>
+      (_db.update(_db.workouts)..where((w) => w.id.equals(id))).write(
+        WorkoutsCompanion(
+          caloriesEstimate: Value(metrics.caloriesEstimate),
+          steps: Value(metrics.steps),
+          stepsSource: Value(metrics.stepsSource),
+          distanceKm: Value(metrics.distanceKm),
+          avgSpeedKmh: Value(metrics.avgSpeedKmh),
+          pausedSeconds: Value(metrics.pausedSeconds),
+          activeSeconds: Value(metrics.activeSeconds),
+          metricsNote: Value(metrics.metricsNote),
+          updatedAt: Value(_clock.now()),
+        ),
+      );
 
   Future<void> update({
     required String id,

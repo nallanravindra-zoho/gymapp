@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/time/app_clock.dart';
 import 'app_database.dart';
 import 'repositories/badge_repository.dart';
+import 'repositories/body_measurement_repository.dart';
 import 'repositories/habit_repository.dart';
+import 'repositories/hobby_repository.dart';
 import 'repositories/rest_day_repository.dart';
 import 'repositories/screen_time_repository.dart';
 import 'repositories/sleep_repository.dart';
@@ -30,6 +32,16 @@ final workoutRepositoryProvider = Provider(
 final habitRepositoryProvider = Provider(
   (ref) =>
       HabitRepository(ref.watch(databaseProvider), ref.watch(clockProvider)),
+);
+final hobbyRepositoryProvider = Provider(
+  (ref) =>
+      HobbyRepository(ref.watch(databaseProvider), ref.watch(clockProvider)),
+);
+final bodyMeasurementRepositoryProvider = Provider(
+  (ref) => BodyMeasurementRepository(
+    ref.watch(databaseProvider),
+    ref.watch(clockProvider),
+  ),
 );
 final sleepRepositoryProvider = Provider(
   (ref) =>

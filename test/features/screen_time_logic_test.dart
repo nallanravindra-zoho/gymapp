@@ -5,6 +5,7 @@ import 'package:wellbeing/core/time/app_clock.dart';
 import 'package:wellbeing/data/app_database.dart';
 import 'package:wellbeing/data/repositories/screen_time_repository.dart';
 import 'package:wellbeing/data/repositories/user_repository.dart';
+import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/features/screen_time/screen_time_logic.dart';
 import 'package:wellbeing/features/screen_time/screen_time_sync.dart';
 import 'package:wellbeing/features/screen_time/usage_source.dart';
@@ -22,6 +23,7 @@ ScreenTimeDailyData row(String date, int total, [String cats = '{}']) {
     categoryMinutes: cats,
     lateEveningMinutes: 0,
     shareInGroups: false,
+    source: ScreenTimeSource.automatic,
   );
 }
 

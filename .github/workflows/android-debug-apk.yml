@@ -122,3 +122,10 @@ jobs:
             psql -v ON_ERROR_STOP=1 -d wellbeing_four -f supabase/$f
           done
           psql -v ON_ERROR_STOP=1 -d wellbeing_four -f supabase/tests/four_digit_codes.sql
+      # All migrations, with the newest applied twice to prove it can be re-run.
+      - name: Run revised-requirements tests
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_revised'
+          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql migrations/20261009000000_delete_account.sql migrations/20261010000000_numeric_invite_codes.sql migrations/20261011000000_four_digit_codes.sql migrations/20261012000000_revised_requirements.sql migrations/20261012000000_revised_requirements.sql tests/revised_requirements.sql; do
+            psql -v ON_ERROR_STOP=1 -d wellbeing_revised -f supabase/$f
+          done

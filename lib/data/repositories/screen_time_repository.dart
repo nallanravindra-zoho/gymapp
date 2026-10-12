@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/time/app_clock.dart';
 import '../app_database.dart';
+import '../tables/tables.dart';
 
 class ScreenTimeRepository {
   ScreenTimeRepository(this._db, this._clock);
@@ -11,13 +12,16 @@ class ScreenTimeRepository {
   final AppClock _clock;
 
   /// One row per local date: re-reading usage stats overwrites that day.
-  /// `shareInGroups` is left untouched on update (off by default).
+  /// `shareInGroups` is left untouched on update (off by default). [source]
+  /// marks manual fallback entries as `manual`.
   Future<void> upsertDay({
     required String userId,
     required String localDate,
     required int totalMinutes,
     String categoryMinutesJson = '{}',
     int lateEveningMinutes = 0,
+    ScreenTimeSource source = ScreenTimeSource.automatic,
+    int? targetMinutes,
   }) async {
     final now = _clock.now();
     final existing =
@@ -42,6 +46,8 @@ class ScreenTimeRepository {
               totalMinutes: totalMinutes,
               categoryMinutes: Value(categoryMinutesJson),
               lateEveningMinutes: Value(lateEveningMinutes),
+              source: Value(source),
+              targetMinutes: Value(targetMinutes),
             ),
           );
       return;
@@ -53,6 +59,11 @@ class ScreenTimeRepository {
         totalMinutes: Value(totalMinutes),
         categoryMinutes: Value(categoryMinutesJson),
         lateEveningMinutes: Value(lateEveningMinutes),
+        source: Value(source),
+        // Keep the recorded target unless a new one is given.
+        targetMinutes: targetMinutes == null
+            ? const Value.absent()
+            : Value(targetMinutes),
         updatedAt: Value(now),
       ),
     );
