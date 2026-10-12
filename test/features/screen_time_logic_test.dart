@@ -102,7 +102,7 @@ void main() {
       for (final k in categoryOrder) {
         expect(categoryLabel(k).contains('!'), isFalse);
       }
-      expect(goalLabel(300), 'Goal 5 h');
+      expect(goalLabel(300), 'Target 5 h');
     });
   });
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../core/time/app_clock.dart';
 import '../../core/time/local_date.dart';
 import '../../data/repositories/screen_time_repository.dart';
+import '../../data/tables/tables.dart' show ScreenTimeSource;
 import '../../data/repositories/user_repository.dart';
 import 'usage_source.dart';
 
@@ -19,6 +20,7 @@ class ScreenTimeSync {
     required this.users,
     required this.repo,
     required this.existingDates,
+    this.currentTarget,
   });
 
   final UsageSource source;
@@ -29,6 +31,9 @@ class ScreenTimeSync {
   /// Dates in `[from, to]` that already have a stored row.
   final Future<Set<String>> Function(String userId, String from, String to)
   existingDates;
+
+  /// The daily limit in force now; recorded with each day that is read.
+  final int? Function()? currentTarget;
 
   static const historyDays = 7;
 
@@ -64,6 +69,8 @@ class ScreenTimeSync {
           totalMinutes: usage.totalMinutes,
           categoryMinutesJson: jsonEncode(usage.categories),
           lateEveningMinutes: usage.lateEveningMinutes,
+          source: ScreenTimeSource.automatic,
+          targetMinutes: isToday ? currentTarget?.call() : null,
         );
       }
       return SyncOutcome.done;

@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// Taps the Today quick-log tile (the first widget labelled [label]; the
 /// summary card below repeats some of these names).
 Future<void> tapQuickTile(WidgetTester tester, String label) async {
-  await tester.tap(find.text(label).first);
+  final tile = find.byKey(ValueKey('quick-$label'));
+  await tester.ensureVisible(tile);
+  await tester.pumpAndSettle();
+  await tester.tap(tile);
   await tester.pumpAndSettle();
 }
 

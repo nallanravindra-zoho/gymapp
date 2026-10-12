@@ -7,7 +7,9 @@ import '../../data/app_database.dart';
 import '../week/week_providers.dart';
 import '../workouts/workout_icons.dart';
 import '../workouts/workout_providers.dart';
+import 'category_streaks.dart';
 import 'milestones_screen.dart';
+import 'today_streaks.dart';
 import 'streak_engine.dart';
 import 'streak_providers.dart';
 
@@ -21,8 +23,11 @@ bool freezeJustUsed(StreakResult r, String? today) {
   return d <= 1 && r.current > 0;
 }
 
-/// "Today's streaks": overall activity and the best current workout streak.
-/// Taps through to milestones.
+/// Older two-stat streak card (overall activity with rest days and freeze, and
+/// the best workout type). Today now uses [TodayStreaks]; this stays for
+/// anything still referencing it. The overall figure is labelled 'overall
+/// activity' because rest days and the freeze can bridge gaps there; the
+/// category streaks never do.
 class StreakCard extends ConsumerWidget {
   const StreakCard({super.key});
 
@@ -222,25 +227,42 @@ class WeekStreaks extends ConsumerWidget {
         );
 
     final tokens = context.tokens;
-    return Row(
+    final categories = ref.watch(categoryStreaksProvider);
+    return Column(
       children: [
-        Expanded(
-          child: card(
-            Icons.local_fire_department_rounded,
-            tokens.cat(Cat.streak),
-            'Overall activity',
-            snap.overall.current,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: card(
+                Icons.local_fire_department_rounded,
+                tokens.cat(Cat.streak),
+                'Overall activity',
+                snap.overall.current,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: card(
+                workoutIcon(bestKey),
+                workoutColors(context, bestKey),
+                best == null ? 'Workout' : types[best.key]?.name ?? 'Workout',
+                best?.value.current ?? 0,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: card(
-            workoutIcon(bestKey),
-            workoutColors(context, bestKey),
-            best == null ? 'Workout' : types[best.key]?.name ?? 'Workout',
-            best?.value.current ?? 0,
+        if (categories != null) ...[
+          const SizedBox(height: 12),
+          SoftCard(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+            child: Column(
+              children: [
+                for (final c in StreakCategory.values)
+                  CategoryStreakRow(category: c, streak: categories[c]!),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

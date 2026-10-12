@@ -2,10 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
-import '../../core/time/local_date.dart';
 import '../habits/habit_providers.dart';
 import '../hobbies/hobby_providers.dart';
-import '../sleep/sleep_logic.dart';
 import '../sleep/sleep_providers.dart';
 import '../week/week_providers.dart';
 import 'badges.dart';
@@ -33,6 +31,13 @@ final allRestDaysProvider = StreamProvider<Set<String>>((ref) async* {
 final awardedBadgesProvider = StreamProvider<Set<String>>((ref) async* {
   final user = await ref.watch(currentUserProvider.future);
   yield* ref.watch(badgeRepositoryProvider).watchAwardedKeys(user.id);
+});
+
+final awardedBadgeDatesProvider = StreamProvider<Map<String, DateTime>>((
+  ref,
+) async* {
+  final user = await ref.watch(currentUserProvider.future);
+  yield* ref.watch(badgeRepositoryProvider).watchAwardedDates(user.id);
 });
 
 /// Recomputed from the logs whenever any of them (or the settings) change,
@@ -64,44 +69,43 @@ final allSleepLogsProvider = StreamProvider<List<SleepLog>>((ref) async* {
 /// The four category streaks (R2), recomputed from the logs whenever any of
 /// them changes, so edits and deletes are always reflected. Null until the
 /// logs have loaded. No rest day or freeze is applied (see [StreakCategory]).
-final categoryStreaksProvider =
-    Provider<Map<StreakCategory, CategoryStreak>?>((ref) {
-      final workouts = ref.watch(allWorkoutsProvider).value;
-      final habits = ref.watch(activeHabitsProvider).value;
-      final habitLogs = ref.watch(allHabitLogsProvider).value;
-      final sleepLogs = ref.watch(allSleepLogsProvider).value;
-      final today = ref.watch(todayDateProvider).value;
-      if (workouts == null ||
-          habits == null ||
-          habitLogs == null ||
-          sleepLogs == null ||
-          today == null) {
-        return null;
-      }
-      final target = ref.watch(effectiveSleepTargetProvider);
-      return {
-        StreakCategory.workout: workoutCategoryStreak(
-          workouts: workouts,
-          today: today,
-        ),
-        StreakCategory.habits: habitsCategoryStreak(
-          habits: habits,
-          logs: habitLogs,
-          today: today,
-        ),
-        StreakCategory.hobbies: hobbyCategoryStreak(
-          ref.watch(hobbyStreakProvider),
-        ),
-        StreakCategory.sleep: sleepCategoryStreak(
-          logs: sleepLogs,
-          targetMinutes: sleepTargetMinutes(
-            bedtimeMinutes: target.bedtimeMinutes,
-            wakeMinutes: target.wakeMinutes,
-          ),
-          today: today,
-        ),
-      };
-    });
+final categoryStreaksProvider = Provider<Map<StreakCategory, CategoryStreak>?>((
+  ref,
+) {
+  final workouts = ref.watch(allWorkoutsProvider).value;
+  final habits = ref.watch(activeHabitsProvider).value;
+  final habitLogs = ref.watch(allHabitLogsProvider).value;
+  final sleepLogs = ref.watch(allSleepLogsProvider).value;
+  final today = ref.watch(todayDateProvider).value;
+  if (workouts == null ||
+      habits == null ||
+      habitLogs == null ||
+      sleepLogs == null ||
+      today == null) {
+    return null;
+  }
+  final target = ref.watch(effectiveSleepTargetProvider);
+  return {
+    StreakCategory.workout: workoutCategoryStreak(
+      workouts: workouts,
+      today: today,
+    ),
+    StreakCategory.habits: habitsCategoryStreak(
+      habits: habits,
+      logs: habitLogs,
+      today: today,
+    ),
+    StreakCategory.hobbies: hobbyCategoryStreak(ref.watch(hobbyStreakProvider)),
+    StreakCategory.sleep: sleepCategoryStreak(
+      logs: sleepLogs,
+      targetMinutes: sleepTargetMinutes(
+        bedtimeMinutes: target.bedtimeMinutes,
+        wakeMinutes: target.wakeMinutes,
+      ),
+      today: today,
+    ),
+  };
+});
 
 /// One-line messages waiting to be shown as a quiet celebration.
 class CelebrationQueue extends Notifier<List<String>> {

@@ -95,6 +95,8 @@ Map<String, DayMarks> build({
   Set<String> restDays = const {},
   List<Habit> habits = const [],
   List<HabitLog> habitLogs = const [],
+  int habitThreshold = 1,
+  Set<String> hobbyDates = const {},
   List<SleepLog> sleepLogs = const [],
   int sleepTarget = 480,
   List<ScreenTimeDailyData> screenRows = const [],
@@ -105,6 +107,8 @@ Map<String, DayMarks> build({
   restDays: restDays,
   habits: habits,
   habitLogs: habitLogs,
+  habitThreshold: habitThreshold,
+  hobbyDates: hobbyDates,
   sleepLogs: sleepLogs,
   sleepTargetMinutes: sleepTarget,
   screenRows: screenRows,
@@ -235,15 +239,120 @@ void main() {
     expect(m['2026-05-15']!.rest, isFalse);
   });
 
-  test('a day with everything done counts four categories', () {
+  test('a day with everything done counts five categories', () {
     final m = build(
       workouts: [workout('a', '2026-05-13', 7)],
       habits: [habit('water')],
       habitLogs: [habitLog('water', '2026-05-13')],
+      hobbyDates: {'2026-05-13'},
       sleepLogs: [sleep('2026-05-13', 500)],
       screenRows: [screen('2026-05-13', 90)],
     );
-    expect(m['2026-05-13']!.count, 4);
+    expect(m['2026-05-13']!.count, 5);
+    expect(m['2026-05-13']!.categories, MarkCategory.values);
     expect(m['2026-05-12']!.count, 0);
+  });
+
+  group('habit threshold', () {
+    final habits = [habit('water'), habit('stretch'), habit('walk')];
+    test('default of one habit', () {
+      final m = build(
+        habits: habits,
+        habitLogs: [habitLog('water', '2026-05-11')],
+      );
+      expect(m['2026-05-11']!.habits, isTrue);
+    });
+
+    test('two needed: one is not enough, two is', () {
+      final m = build(
+        habits: habits,
+        habitThreshold: 2,
+        habitLogs: [
+          habitLog('water', '2026-05-11'),
+          habitLog('water', '2026-05-12'),
+          habitLog('stretch', '2026-05-12'),
+        ],
+      );
+      expect(m['2026-05-11']!.habits, isFalse);
+      expect(m['2026-05-12']!.habits, isTrue);
+    });
+
+    test('a threshold above the number of habits asks for all of them', () {
+      final two = [habit('water'), habit('stretch')];
+      final m = build(
+        habits: two,
+        habitThreshold: 5,
+        habitLogs: [
+          habitLog('water', '2026-05-11'),
+          habitLog('water', '2026-05-12'),
+          habitLog('stretch', '2026-05-12'),
+        ],
+      );
+      expect(m['2026-05-11']!.habits, isFalse);
+      expect(m['2026-05-12']!.habits, isTrue);
+    });
+
+    test('a zero or negative threshold still needs one habit', () {
+      expect(habitsMarkMet(habits: habits, counts: {}, threshold: 0), isFalse);
+      expect(
+        habitsMarkMet(habits: habits, counts: {'water': 1}, threshold: -3),
+        isTrue,
+      );
+    });
+  });
+
+  group('hobbies', () {
+    test('show only on days with a daily goal met', () {
+      final m = build(hobbyDates: {'2026-05-12'});
+      expect(m['2026-05-12']!.hobbies, isTrue);
+      expect(m['2026-05-11']!.hobbies, isFalse);
+      expect(m['2026-05-12']!.categories, [MarkCategory.hobbies]);
+    });
+
+    test('no hobby days means no hobby marks anywhere', () {
+      expect(build().values.any((d) => d.hobbies), isFalse);
+    });
+  });
+
+  group('screen time target', () {
+    test('uses only the current target; a recorded one does not override', () {
+      final row = screen('2026-05-11', 200);
+      expect(screenMarkMet(row, 240), isTrue);
+      expect(screenMarkMet(row, 120), isFalse);
+      expect(screenMarkMet(row, null), isFalse);
+      expect(screenMarkMet(null, 240), isFalse);
+    });
+  });
+
+  group('sleep date', () {
+    test('counts on the wake date only', () {
+      final m = build(sleepLogs: [sleep('2026-05-13', 500)]);
+      expect(m['2026-05-12']!.sleep, isFalse);
+      expect(m['2026-05-13']!.sleep, isTrue);
+    });
+  });
+
+  group('limitMarks', () {
+    const all = MarkCategory.values;
+    test('shows everything up to the maximum', () {
+      final v = limitMarks(all.take(3).toList());
+      expect(v.shown, all.take(3));
+      expect(v.overflow, 0);
+    });
+    test('adds +N past the maximum', () {
+      final v = limitMarks(all);
+      expect(v.shown, all.take(maxVisibleMarks));
+      expect(v.overflow, all.length - maxVisibleMarks);
+    });
+    test('nothing is nothing', () {
+      final v = limitMarks(const []);
+      expect(v.shown, isEmpty);
+      expect(v.overflow, 0);
+    });
+    test('respects a custom maximum', () {
+      final v = limitMarks(all, max: 1);
+      expect(v.shown, [MarkCategory.workout]);
+      expect(v.overflow, 4);
+    });
   });
 }

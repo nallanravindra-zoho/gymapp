@@ -5,8 +5,10 @@ import '../../data/app_database.dart';
 import '../../data/providers.dart';
 import '../habits/habit_providers.dart';
 import '../hobbies/hobby_providers.dart';
+import '../screen_time/screen_time_logic.dart' show withinTarget;
 import '../screen_time/screen_time_providers.dart';
 import '../sleep/sleep_providers.dart';
+import '../streaks/streak_providers.dart' show userStreamProvider;
 import 'week_providers.dart';
 
 /// The categories a Week day can show an icon for (R8), in display order.
@@ -85,9 +87,7 @@ bool habitsMarkMet({
   required int threshold,
 }) {
   if (habits.isEmpty) return false;
-  final met = habits
-      .where((h) => (counts[h.id] ?? 0) >= h.dailyTarget)
-      .length;
+  final met = habits.where((h) => (counts[h.id] ?? 0) >= h.dailyTarget).length;
   final needed = threshold.clamp(1, habits.length);
   return met >= needed;
 }
@@ -97,13 +97,10 @@ bool sleepMarkMet(SleepLog? log, int targetMinutes) =>
     log != null && log.durationMinutes >= targetMinutes;
 
 /// Screen time counts when a day was recorded and stayed at or under the
-/// limit. The limit recorded with the day wins over the current one; with no
-/// limit at all there is nothing to achieve, so no icon.
-bool screenMarkMet(ScreenTimeDailyData? row, int? currentGoalMinutes) {
-  if (row == null) return false;
-  final limit = row.targetMinutes ?? currentGoalMinutes;
-  return limit != null && row.totalMinutes <= limit;
-}
+/// person's current daily target. With no target there is nothing to
+/// achieve, so no icon.
+bool screenMarkMet(ScreenTimeDailyData? row, int? targetMinutes) =>
+    row != null && withinTarget(row.totalMinutes, targetMinutes);
 
 /// The marks for one day from already-loaded data. Pure.
 DayMarks buildDayMarks({

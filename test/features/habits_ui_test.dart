@@ -218,11 +218,13 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    expect(find.text('7-day streak reached.'), findsOneWidget);
+    expect(find.textContaining('streak reached.'), findsOneWidget);
     final keys = (await db.select(db.badgesAwarded).get()).map(
       (b) => b.badgeKey,
     );
-    expect(keys, ['streak_habit:${habit.id}_7']);
+    // The habit's own badge plus the Healthy habits category badge.
+    expect(keys.toSet(), {'streak_habit:${habit.id}_7', 'habits_7'});
+    expect(keys.length, 2);
   });
 
   test('habit copy has no exclamation marks', () {

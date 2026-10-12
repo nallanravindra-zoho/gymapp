@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
-import '../../core/time/local_date.dart';
 import '../../data/app_database.dart';
+import '../../data/tables/tables.dart';
 import '../hobbies/hobby_logic.dart';
-import '../sleep/sleep_logic.dart';
 import 'streak_engine.dart';
 
 /// Milestones for the category badges (R2).
@@ -153,7 +152,8 @@ Set<String> habitTargetMetDates({
 }) {
   final target = {
     for (final h in habits)
-      if (h.isActive && h.deletedAt == null) h.id: h.dailyTarget < 1 ? 1 : h.dailyTarget,
+      if (h.isActive && h.deletedAt == null)
+        h.id: h.dailyTarget < 1 ? 1 : h.dailyTarget,
   };
   final totals = <String, Map<String, int>>{};
   for (final l in logs) {

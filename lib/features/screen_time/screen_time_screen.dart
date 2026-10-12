@@ -7,9 +7,11 @@ import '../../core/theme/tokens.dart';
 import '../../core/time/local_date.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
+import '../../data/tables/tables.dart' show ScreenTimeSource;
 import '../habits/habits_screen.dart';
 import '../week/week_providers.dart';
 import 'screen_time_logic.dart';
+import 'screen_time_manual.dart';
 import 'screen_time_providers.dart';
 
 enum _Tab { today, week }
@@ -21,38 +23,66 @@ class ScreenTimeScreen extends ConsumerStatefulWidget {
   ConsumerState<ScreenTimeScreen> createState() => _ScreenTimeScreenState();
 }
 
-class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen> {
+class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen>
+    with WidgetsBindingObserver {
   _Tab _tab = _Tab.today;
+
+  /// Set when the person chooses manual entry from the first-use page.
+  bool _manual = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Back from the system settings page: check the access again.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(screenTimeAccessProvider);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final access = ref.watch(screenTimeAccessProvider);
+    final granted = access.value ?? false;
+    final hasRows =
+        (ref.watch(screenTimeWeekProvider).value ?? const []).isNotEmpty;
 
-    return access.when(
-      loading: () => Scaffold(appBar: _bar(context)),
-      error: (_, _) => const _AccessExplanation(),
-      data: (granted) => granted
-          ? Scaffold(
-              appBar: _bar(context),
-              body: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: PillTabs<_Tab>(
-                      options: const {_Tab.today: 'Today', _Tab.week: 'Week'},
-                      selected: _tab,
-                      onChanged: (v) => setState(() => _tab = v),
-                    ),
-                  ),
-                  Expanded(
-                    child: _tab == _Tab.today
-                        ? const _TodayTab()
-                        : const _WeekTab(),
-                  ),
-                ],
-              ),
-            )
-          : const _AccessExplanation(),
+    if (access.isLoading && !access.hasValue) {
+      return Scaffold(appBar: _bar(context));
+    }
+    if (!granted && !_manual && !hasRows) {
+      return _AccessExplanation(onManual: () => setState(() => _manual = true));
+    }
+    return Scaffold(
+      appBar: _bar(context),
+      body: Column(
+        children: [
+          if (!granted) const _UnavailableCard(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: PillTabs<_Tab>(
+              options: const {_Tab.today: 'Today', _Tab.week: 'Week'},
+              selected: _tab,
+              onChanged: (v) => setState(() => _tab = v),
+            ),
+          ),
+          Expanded(
+            child: _tab == _Tab.today
+                ? _TodayTab(automatic: granted)
+                : const _WeekTab(),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -67,9 +97,11 @@ AppBar _bar(BuildContext context) => AppBar(
 );
 
 /// Explains why access is needed before sending the user to system settings
-/// (spec 8.1, section 9).
+/// (spec 8.1, section 9). Manual entry is offered only as a fallback.
 class _AccessExplanation extends ConsumerWidget {
-  const _AccessExplanation();
+  const _AccessExplanation({required this.onManual});
+
+  final VoidCallback onManual;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,23 +122,30 @@ class _AccessExplanation extends ConsumerWidget {
             const SizedBox(height: 12),
             const Text(
               'Screen time reads how long apps are open, using Android\'s '
-              'usage access setting.',
+              'usage access setting. Turning it on is how tracking happens '
+              'automatically.',
             ),
             const SizedBox(height: 12),
             const Text(
               'Only daily totals are kept. App names stay on your phone, '
-              'and nothing is shared with groups unless you turn it on.',
+              'no websites are recorded, and nothing is shared with groups '
+              'unless you turn it on.',
             ),
             const SizedBox(height: 12),
             Text(
-              'In the next screen, choose Well-Being and switch on '
-              'permission. Then come back here.',
+              'In the next screen, choose Well Being Companion and switch on '
+              'permission. Then come back here and access is checked again.',
               style: text.bodySmall,
             ),
             const Spacer(),
             FilledButton(
               onPressed: () => ref.read(usageSourceProvider).openSettings(),
-              child: const Text('Open settings'),
+              child: const Text('Grant Usage Access'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: onManual,
+              child: const Text('Enter screen time manually instead'),
             ),
             const SizedBox(height: 10),
             OutlinedButton(
@@ -120,14 +159,60 @@ class _AccessExplanation extends ConsumerWidget {
   }
 }
 
+/// Shown above the tabs while usage access is off or was taken away.
+class _UnavailableCard extends ConsumerWidget {
+  const _UnavailableCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: SoftCard(
+        color: context.tokens.cat(Cat.screen).tint.withValues(alpha: 0.55),
+        borderColor: Colors.transparent,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Automatic tracking is unavailable', style: text.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              'Usage access is off, so screen time is not being read. Grant '
+              'access to track it automatically, or enter it yourself in the '
+              'meantime.',
+              style: text.bodySmall,
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, kMinTapTarget),
+                  padding: EdgeInsets.zero,
+                ),
+                onPressed: () => ref.read(usageSourceProvider).openSettings(),
+                child: const Text('Grant Usage Access'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TodayTab extends ConsumerWidget {
-  const _TodayTab();
+  const _TodayTab({required this.automatic});
+
+  /// False while usage access is unavailable: manual entry is offered then.
+  final bool automatic;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final row = ref.watch(screenTimeTodayProvider);
     final goal = ref.watch(screenTimeGoalProvider).value;
     final total = row?.totalMinutes ?? 0;
+    final manualRow = row?.source == ScreenTimeSource.manual;
     final categories = row == null
         ? const <MapEntry<String, int>>[]
         : categoriesOf(row);
@@ -190,9 +275,30 @@ class _TodayTab extends ConsumerWidget {
                 padding: EdgeInsets.zero,
               ),
               onPressed: () => _editGoal(context, ref, goal),
-              child: Text(goal == null ? 'Set a daily goal' : 'Change goal'),
+              child: Text(
+                goal == null ? 'Set a daily target' : 'Change target',
+              ),
             ),
           ),
+          if (!automatic)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => showManualScreenTimeDialog(context, ref),
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(
+                  manualRow ? 'Edit manual entry' : 'Add screen time manually',
+                ),
+              ),
+            ),
+          if (manualRow)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Entered manually, not read from the phone.',
+                style: text.bodySmall?.copyWith(color: t.textMuted),
+              ),
+            ),
           const RowDivider(),
           const SizedBox(height: 16),
           Text('By category', style: text.titleSmall),
@@ -377,36 +483,81 @@ class _GoalChoice {
   final int? minutes;
 }
 
-class _GoalDialog extends StatelessWidget {
+class _GoalDialog extends StatefulWidget {
   const _GoalDialog({required this.current});
   final int? current;
 
   @override
+  State<_GoalDialog> createState() => _GoalDialogState();
+}
+
+class _GoalDialogState extends State<_GoalDialog> {
+  final _custom = TextEditingController();
+
+  @override
+  void dispose() {
+    _custom.dispose();
+    super.dispose();
+  }
+
+  int? get _customMinutes {
+    final v = int.tryParse(_custom.text.trim());
+    return v == null || v < 15 || v > 1440 ? null : v;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Daily goal'),
-      content: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      title: const Text('Daily target'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final m in goalChoices)
-            ChoiceChip(
-              label: Text(formatScreenTime(m)),
-              selected: current == m,
-              onSelected: (_) => Navigator.pop(context, _GoalChoice(m)),
+          const Text(
+            'Your own limit for a day. The Week calendar shows the screen '
+            'time icon on days you stay at or under it.',
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in goalChoices)
+                ChoiceChip(
+                  label: Text(formatScreenTime(m)),
+                  selected: widget.current == m,
+                  onSelected: (_) => Navigator.pop(context, _GoalChoice(m)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _custom,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Or your own, in minutes',
+              helperText: 'Between 15 and 1440 minutes',
             ),
+          ),
         ],
       ),
       actions: [
-        if (current != null)
+        if (widget.current != null)
           TextButton(
             onPressed: () => Navigator.pop(context, const _GoalChoice(null)),
-            child: const Text('No goal'),
+            child: const Text('No target'),
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
+        if (_customMinutes != null)
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, _GoalChoice(_customMinutes)),
+            child: const Text('Save'),
+          ),
       ],
     );
   }

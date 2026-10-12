@@ -24,6 +24,7 @@ final screenTimeSyncProvider = Provider(
     users: ref.watch(userRepositoryProvider),
     repo: ref.watch(screenTimeRepositoryProvider),
     existingDates: ref.watch(screenTimeRepositoryProvider).datesBetween,
+    currentTarget: () => ref.read(screenTimeGoalProvider).value,
   ),
 );
 

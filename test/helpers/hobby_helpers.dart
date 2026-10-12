@@ -9,9 +9,10 @@ import '../features/chant_test.dart' show FakeChantPlatform;
 /// Opens the Hobbies screen from Today's quick tile.
 Future<void> openHobbies(WidgetTester tester) async {
   // The entry may sit below the fold on Today.
-  await tester.ensureVisible(find.text('Hobbies').first);
+  final tile = find.byKey(const ValueKey('quick-Hobbies'));
+  await tester.ensureVisible(tile);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Hobbies').first);
+  await tester.tap(tile);
   await tester.pumpAndSettle();
 }
 

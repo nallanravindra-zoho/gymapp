@@ -156,6 +156,14 @@ class SleepScreen extends ConsumerWidget {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+            child: Text(
+              '$sleepDateCaption. The sleep icon on the Week calendar shows '
+              'only when you reach your sleep target.',
+              style: text.bodySmall?.copyWith(color: t.textMuted),
+            ),
+          ),
           const SizedBox(height: 14),
           if (consistency != null)
             SoftCard(
