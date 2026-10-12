@@ -325,6 +325,14 @@ void main() {
         await tester.enterText(find.byType(TextField), 'Crew');
         await tester.tap(find.text('Create'));
         await tester.pumpAndSettle();
+        // The sharing sheet that opens before a group is created.
+        await tester.tap(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text('Create group'),
+          ),
+        );
+        await tester.pumpAndSettle();
         expect((await user(db)).displayName, 'Divya Account');
       },
       auth: signedInAuth(),
@@ -345,6 +353,14 @@ void main() {
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'Crew');
         await tester.tap(find.text('Create'));
+        await tester.pumpAndSettle();
+        // The sharing sheet that opens before a group is created.
+        await tester.tap(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text('Create group'),
+          ),
+        );
         await tester.pumpAndSettle();
         expect((await user(db)).displayName, 'Chosen');
       },

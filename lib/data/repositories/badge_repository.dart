@@ -4,6 +4,10 @@ import 'package:uuid/uuid.dart';
 import '../../core/time/app_clock.dart';
 import '../app_database.dart';
 
+/// Deterministic row id for a badge (UUID v5), identical on every device.
+String badgeRowId(String userId, String badgeKey) =>
+    const Uuid().v5(Namespace.url.value, 'wellbeing-badge:$userId:$badgeKey');
+
 class BadgeRepository {
   BadgeRepository(this._db, this._clock);
 
@@ -37,11 +41,13 @@ class BadgeRepository {
               .getSingleOrNull();
       if (existing != null) return false;
       final now = _clock.now();
+      // The id is derived from user and key, so two devices that award the
+      // same badge produce the same row and sync merges them into one.
       await _db
           .into(_db.badgesAwarded)
-          .insert(
+          .insertOnConflictUpdate(
             BadgesAwardedCompanion.insert(
-              id: const Uuid().v4(),
+              id: badgeRowId(userId, badgeKey),
               createdAt: now,
               updatedAt: now,
               userId: userId,

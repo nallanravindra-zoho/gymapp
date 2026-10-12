@@ -58,6 +58,7 @@ class SettingsScreen extends ConsumerWidget {
       'Appearance': SettingsSection.appearance,
       'Streaks': SettingsSection.preferences,
       'Day': SettingsSection.preferences,
+      'Week calendar': SettingsSection.preferences,
       'Reminders': SettingsSection.reminders,
       'Your data': SettingsSection.data,
     };
@@ -197,6 +198,26 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                 ], note: 'Changes apply to your streaks straight away.'),
+                block(
+                  'Week calendar',
+                  [
+                    _StepperTile(
+                      title: 'Habits needed for a day icon',
+                      value: user.habitThreshold,
+                      min: 1,
+                      max: 10,
+                      format: (v) => '$v',
+                      onChanged: (v) => _save(
+                        ref,
+                        user,
+                        UsersCompanion(habitThreshold: Value(v)),
+                      ),
+                    ),
+                  ],
+                  note:
+                      'A day shows the Healthy Habits icon once at least this '
+                      'many active habits reached their daily target.',
+                ),
                 block(
                   'Day',
                   [

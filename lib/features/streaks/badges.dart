@@ -19,3 +19,7 @@ List<int> milestonesDue({
 /// Quiet one-line copy (spec 4.5).
 String milestoneMessage(int days) => '$days-day streak reached.';
 String streakMessage(int days) => '$days-day streak.';
+
+/// Category badges (R2) use the deterministic key `<category>_<milestone>`
+/// (see StreakCategory.badgeKey). The legacy `streak_overall_*` and
+/// `streak_habit:<id>_*` keys stay as they were.
