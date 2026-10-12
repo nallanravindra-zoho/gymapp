@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/providers.dart';
+import 'workout_calc.dart';
 import 'workout_icons.dart';
 import 'workout_providers.dart';
 import 'workout_timer.dart';
@@ -116,6 +117,15 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                   timer.isPaused ? 'Paused' : 'In progress',
                   style: text.titleMedium?.copyWith(color: t.accent),
                 ),
+                if (tracksDistance(type?.iconKey)) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    timer.stepBase != null
+                        ? 'Counting steps with your phone'
+                        : stepsUnavailable,
+                    style: text.bodySmall?.copyWith(color: t.textMuted),
+                  ),
+                ],
                 const SizedBox(height: 34),
                 Semantics(
                   liveRegion: false,

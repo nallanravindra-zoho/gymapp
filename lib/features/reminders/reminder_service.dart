@@ -5,6 +5,7 @@ import '../../data/app_database.dart';
 import '../../data/repositories/habit_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../habits/reminder_config.dart';
+import '../hobbies/hobby_reminders.dart';
 import 'notification_scheduler.dart';
 import 'reminder_planner.dart';
 
@@ -76,24 +77,29 @@ class ReminderService {
       enabledHabits: inputs.length,
       quietStart: quietStart,
       quietEnd: quietEnd,
+      sound: user.reminderSound,
     );
   }
 
   Future<void> reschedule() async {
     await scheduler.cancelPlanned();
+    // Hobby reminders (R5) live in their own id range; rebuild them here so
+    // they follow app start and every preference change.
+    try {
+      await HobbyReminderService(
+        db: db,
+        clock: clock,
+        scheduler: scheduler,
+      ).reschedule();
+    } catch (_) {
+      // A hobby reminder problem must not stop habit reminders.
+    }
+    // Preferences are kept when permission is revoked; they are simply not
+    // scheduled until it is allowed again.
     if (!await scheduler.hasPermission()) return;
 
     final plan = await _plan();
-
-    // Snoozes for habits that have since met their target no longer fire.
-    // The test reminder is not tied to a habit and is left alone.
-    for (final p in await scheduler.pending()) {
-      if (p.id < snoozeIdBase || p.id == testNotificationId) continue;
-      final payload = ReminderPayload.decode(p.payload);
-      if (payload == null || payload.habitIds.every(plan.met.contains)) {
-        await scheduler.cancel(p.id);
-      }
-    }
+    await scheduler.useSound(plan.sound);
 
     try {
       for (var i = 0; i < plan.planned.length; i++) {
@@ -123,7 +129,7 @@ class ReminderService {
     final diagnostics = await scheduler.diagnose();
     final onPhone = [
       for (final p in await scheduler.pending())
-        if (p.id >= plannedIdBase && p.id < snoozeIdBase) p,
+        if (p.id >= plannedIdBase && p.id < plannedIdLimit) p,
     ].length;
     return UpcomingReminders(
       next: plan.planned.take(limit).toList(),
@@ -144,19 +150,19 @@ class ReminderService {
     if (!await scheduler.hasPermission()) {
       return const TestResult.noPermission();
     }
+    await scheduler.useSound((await _plan()).sound);
     final at = clock.now().toLocal().add(delay);
     final test = ScheduledNotification(
       id: testNotificationId,
       at: at,
       title: 'Test reminder.',
       body: 'Notifications are working.',
-      // No habits: the Log and Snooze buttons do nothing for a test.
+      // No habits: the Log and Skip buttons do nothing for a test.
       payload: const ReminderPayload(
         habitIds: [],
         habitNames: [],
         kinds: [],
         priority: 0,
-        snoozeCount: 0,
       ).encode(),
     );
     try {
@@ -198,8 +204,10 @@ class _Plan {
     required this.enabledHabits,
     required this.quietStart,
     required this.quietEnd,
+    required this.sound,
   });
 
+  final String? sound;
   final List<PlannedReminder> planned;
   final Set<String> met;
   final int enabledHabits;

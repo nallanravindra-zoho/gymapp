@@ -2,7 +2,18 @@ import 'dart:convert';
 
 enum ReminderMode { times, interval }
 
-/// When a habit's reminders fire (spec 5, Habits and breaks): either at fixed
+/// Repeat intervals offered in setup, in minutes (R4): 30 minutes, then
+/// 1, 2, 3 and 4 hours.
+const reminderIntervals = [30, 60, 120, 180, 240];
+
+/// Shown in red when the To time is earlier than the From time (R4). An
+/// overnight window such as 11 PM to 6 AM is not supported in this version, so
+/// it is rejected rather than quietly wrapped past midnight.
+const windowOrderMessage =
+    'The To time cannot be earlier than the From time. Overnight windows '
+    'are not supported yet, so choose a window within one day.';
+
+/// When a habit's reminders fire (spec 5, Healthy Habits): either at fixed
 /// times, or every N minutes inside a window, on chosen days of the week.
 class ReminderConfig {
   const ReminderConfig({
@@ -26,6 +37,25 @@ class ReminderConfig {
 
   /// ISO weekdays, 1 = Monday ... 7 = Sunday.
   final Set<int> activeDays;
+
+  /// True when an interval window ends before it starts. Such a config fires
+  /// at nothing: the window is never wrapped past midnight.
+  bool get windowReversed =>
+      mode == ReminderMode.interval && windowEnd < windowStart;
+
+  /// What is wrong with this config, or null when it is valid.
+  String? get problem {
+    if (windowReversed) return windowOrderMessage;
+    if (mode == ReminderMode.times && minutesOfDay.isEmpty) {
+      return 'Add at least one reminder time.';
+    }
+    if (activeDays.isEmpty) return 'Choose at least one day.';
+    return null;
+  }
+
+  /// How many times a day this config fires (both ends of an interval window
+  /// count: 12:00 to 17:00 every hour is six).
+  int get occurrences => minutesOfDay.length;
 
   /// Every minute-of-day this config fires at, sorted and de-duplicated.
   List<int> get minutesOfDay {

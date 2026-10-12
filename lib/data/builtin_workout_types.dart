@@ -21,3 +21,7 @@ const builtinWorkoutTypes = [
   BuiltinType('builtin-flexibility', 'Flexibility', 'flexibility'),
   BuiltinType('builtin-other', 'Other', 'other'),
 ];
+
+/// Built-in types that are no longer offered in the picker. Their rows stay
+/// so workouts already logged with them still show a name and icon.
+const retiredBuiltinTypeIds = {'builtin-other'};

@@ -49,6 +49,9 @@ class AppDatabase extends _$AppDatabase {
       // Adds any tips this version ships that the database lacks, so
       // existing installs receive new tips too.
       await seedTipsLibrary();
+      // Adds any built-in workout types this version ships that the database
+      // lacks; existing rows (and the retired "Other") are left untouched.
+      await seedBuiltinWorkoutTypes();
     },
   );
 
@@ -103,10 +106,13 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  Future<void> _seedBuiltins() async {
+  Future<void> _seedBuiltins() => seedBuiltinWorkoutTypes();
+
+  /// Idempotent: types are matched by their fixed ids.
+  Future<void> seedBuiltinWorkoutTypes() async {
     final now = DateTime.now().toUtc();
     await batch((b) {
-      b.insertAll(workoutTypes, [
+      b.insertAll(workoutTypes, mode: InsertMode.insertOrIgnore, [
         for (final t in builtinWorkoutTypes)
           WorkoutTypesCompanion.insert(
             id: t.id,

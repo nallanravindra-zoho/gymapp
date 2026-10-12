@@ -4,7 +4,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/tables/tables.dart';
 import 'reminder_config.dart';
 
-/// Starting values for each kind of habit (spec 5, Habits and breaks).
+/// Starting values for each kind of habit (spec 5, Healthy Habits).
 class HabitDefaults {
   const HabitDefaults({
     required this.label,
@@ -34,7 +34,7 @@ final habitDefaults = <HabitKind, HabitDefaults>{
     ),
   ),
   HabitKind.stand: const HabitDefaults(
-    label: 'Stand',
+    label: 'Stand and move',
     icon: Icons.accessibility_new_rounded,
     dailyTarget: 8,
     config: ReminderConfig(
@@ -106,3 +106,10 @@ String describeInterval(int minutes) {
   }
   return 'Every $minutes minutes';
 }
+
+/// Quick picks offered when adding a custom habit.
+const customSuggestions = ['Meditation', 'Chanting'];
+
+/// "6 reminders a day". Counts reminders, never hours.
+String describeOccurrences(int n) =>
+    n == 1 ? '1 reminder a day' : '$n reminders a day';

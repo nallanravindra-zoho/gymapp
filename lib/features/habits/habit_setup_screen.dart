@@ -10,6 +10,7 @@ import '../reminders/reminder_providers.dart';
 import 'habit_defaults.dart';
 import 'reminder_config.dart';
 
+const _maxTarget = 60;
 const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 String formatMinutes(BuildContext context, int minutes) =>
@@ -32,6 +33,10 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
   late bool _reminders;
   late ReminderConfig _config;
   bool _nameEdited = false;
+
+  /// Once the person changes the target themselves it is kept, and no longer
+  /// follows the number of reminders a day.
+  bool _targetEdited = false;
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
@@ -47,10 +52,15 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
       _target = h.dailyTarget;
       _reminders = h.remindersEnabled;
       _config = ReminderConfig.fromJson(h.reminderConfig);
+      // A target that differs from the schedule was chosen by the person.
+      _targetEdited =
+          !_reminders ||
+          _config.problem != null ||
+          h.dailyTarget != _config.occurrences;
     } else {
+      _reminders = false; // reminders are off by default (spec 7.4)
       _kind = HabitKind.water;
       _applyKind(HabitKind.water, keepName: false);
-      _reminders = false; // reminders are off by default (spec 7.4)
     }
   }
 
@@ -64,12 +74,29 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
     final d = habitDefaults[kind]!;
     _kind = kind;
     _target = d.dailyTarget;
+    _targetEdited = false;
     _config = d.config;
+    _syncTarget();
     if (!(keepName && _nameEdited)) {
       _name.text = kind == HabitKind.custom ? '' : d.label;
       _nameEdited = false;
     }
   }
+
+  /// With reminders on and no target of the person's own, the daily target is
+  /// the number of reminders a day (both ends of a window count).
+  void _syncTarget() {
+    if (!_reminders || _targetEdited || _config.problem != null) return;
+    _target = _config.occurrences.clamp(1, _maxTarget);
+  }
+
+  void _setConfig(ReminderConfig c) => setState(() {
+    _config = c;
+    _syncTarget();
+  });
+
+  /// Reminders are on but the schedule cannot be saved.
+  String? get _problem => _reminders ? _config.problem : null;
 
   Future<int?> _pickMinutes(int initial) async {
     final t = await showTimePicker(
@@ -122,16 +149,7 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
       _toast('Enter a name.');
       return;
     }
-    if (_reminders &&
-        _config.mode == ReminderMode.times &&
-        _config.times.isEmpty) {
-      _toast('Add at least one reminder time.');
-      return;
-    }
-    if (_reminders && _config.activeDays.isEmpty) {
-      _toast('Choose at least one day.');
-      return;
-    }
+    if (_problem != null) return; // shown in red; Save is disabled
     setState(() => _saving = true);
 
     if (_reminders) await _ensureNotificationAccess();
@@ -176,7 +194,7 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(kMinTapTarget),
             ),
-            onPressed: _saving ? null : _save,
+            onPressed: (_saving || _problem != null) ? null : _save,
             child: const Text('Save'),
           ),
         ),
@@ -208,13 +226,49 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
               border: OutlineInputBorder(),
             ),
           ),
+          if (_kind == HabitKind.custom) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final s in customSuggestions)
+                  ActionChip(
+                    label: Text(s),
+                    onPressed: () => setState(() {
+                      _name.text = s;
+                      _nameEdited = true;
+                    }),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
+          // 1. Reminder
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Reminder'),
+            subtitle: const Text('Off unless you turn it on'),
+            value: _reminders,
+            onChanged: (v) => setState(() {
+              _reminders = v;
+              _syncTarget();
+            }),
+          ),
+          // 2. Repeating or set times
+          if (_reminders) _reminderOptions(context),
+          const SizedBox(height: 16),
+          // 3. Target and other details
           Text('Daily target', style: text.bodySmall),
           Row(
             children: [
               IconButton.outlined(
                 tooltip: 'Decrease target',
-                onPressed: _target > 1 ? () => setState(() => _target--) : null,
+                onPressed: _target > 1
+                    ? () => setState(() {
+                        _target--;
+                        _targetEdited = true;
+                      })
+                    : null,
                 icon: const Icon(Icons.remove_rounded),
               ),
               Padding(
@@ -223,21 +277,23 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
               ),
               IconButton.outlined(
                 tooltip: 'Increase target',
-                onPressed: _target < 30
-                    ? () => setState(() => _target++)
+                onPressed: _target < _maxTarget
+                    ? () => setState(() {
+                        _target++;
+                        _targetEdited = true;
+                      })
                     : null,
                 icon: const Icon(Icons.add_rounded),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Reminders'),
-            value: _reminders,
-            onChanged: (v) => setState(() => _reminders = v),
-          ),
-          if (_reminders) _reminderOptions(context),
+          if (_reminders)
+            Text(
+              _targetEdited
+                  ? 'Your own target. It no longer follows the reminders.'
+                  : 'Set from the number of reminders a day. Change it to use your own.',
+              style: text.bodySmall,
+            ),
         ],
       ),
     );
@@ -245,6 +301,7 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
 
   Widget _reminderOptions(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final problem = _problem;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -258,20 +315,19 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
           ],
           selected: {_config.mode},
           onSelectionChanged: (s) =>
-              setState(() => _config = _config.copyWith(mode: s.first)),
+              _setConfig(_config.copyWith(mode: s.first)),
         ),
         const SizedBox(height: 12),
         if (_config.mode == ReminderMode.interval) ...[
           Wrap(
             spacing: 8,
             children: [
-              for (final m in const [30, 60, 120, 180])
+              for (final m in reminderIntervals)
                 ChoiceChip(
                   label: Text(describeInterval(m)),
                   selected: _config.everyMinutes == m,
-                  onSelected: (_) => setState(
-                    () => _config = _config.copyWith(everyMinutes: m),
-                  ),
+                  onSelected: (_) =>
+                      _setConfig(_config.copyWith(everyMinutes: m)),
                 ),
             ],
           ),
@@ -282,21 +338,17 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
             trailing: Text(formatMinutes(context, _config.windowStart)),
             onTap: () async {
               final m = await _pickMinutes(_config.windowStart);
-              if (m != null) {
-                setState(() => _config = _config.copyWith(windowStart: m));
-              }
+              if (m != null) _setConfig(_config.copyWith(windowStart: m));
             },
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             minTileHeight: kMinTapTarget,
-            title: const Text('Until'),
+            title: const Text('To'),
             trailing: Text(formatMinutes(context, _config.windowEnd)),
             onTap: () async {
               final m = await _pickMinutes(_config.windowEnd);
-              if (m != null) {
-                setState(() => _config = _config.copyWith(windowEnd: m));
-              }
+              if (m != null) _setConfig(_config.copyWith(windowEnd: m));
             },
           ),
         ] else ...[
@@ -306,10 +358,8 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
               for (final m in _config.minutesOfDay)
                 InputChip(
                   label: Text(formatMinutes(context, m)),
-                  onDeleted: () => setState(
-                    () => _config = _config.copyWith(
-                      times: [..._config.times]..remove(m),
-                    ),
+                  onDeleted: () => _setConfig(
+                    _config.copyWith(times: [..._config.times]..remove(m)),
                   ),
                 ),
               ActionChip(
@@ -318,17 +368,36 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
                 onPressed: () async {
                   final m = await _pickMinutes(12 * 60);
                   if (m != null) {
-                    setState(
-                      () => _config = _config.copyWith(
-                        times: [..._config.times, m],
-                      ),
-                    );
+                    _setConfig(_config.copyWith(times: [..._config.times, m]));
                   }
                 },
               ),
             ],
           ),
         ],
+        if (problem != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                problem,
+                key: const Key('reminder-problem'),
+                style: text.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              describeOccurrences(_config.occurrences),
+              key: const Key('reminder-count'),
+              style: text.bodySmall,
+            ),
+          ),
         const SizedBox(height: 16),
         Text('Active days', style: text.bodySmall),
         const SizedBox(height: 8),
@@ -339,11 +408,11 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
               FilterChip(
                 label: Text(_dayNames[d - 1]),
                 selected: _config.activeDays.contains(d),
-                onSelected: (on) => setState(() {
+                onSelected: (on) {
                   final days = {..._config.activeDays};
                   on ? days.add(d) : days.remove(d);
-                  _config = _config.copyWith(activeDays: days);
-                }),
+                  _setConfig(_config.copyWith(activeDays: days));
+                },
               ),
           ],
         ),

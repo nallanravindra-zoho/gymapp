@@ -20,6 +20,12 @@ CREATE TABLE users (
   freeze_enabled INTEGER NOT NULL DEFAULT 1 CHECK (freeze_enabled IN (0, 1)),
   freeze_interval_days INTEGER NOT NULL DEFAULT 7
 );
+CREATE TABLE workout_types (
+  id TEXT NOT NULL PRIMARY KEY, created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL, deleted_at INTEGER,
+  user_id TEXT, name TEXT NOT NULL, icon_key TEXT NOT NULL,
+  is_builtin INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0, 1))
+);
 CREATE TABLE workouts (
   id TEXT NOT NULL PRIMARY KEY, created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL, deleted_at INTEGER,

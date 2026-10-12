@@ -13,9 +13,29 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val ringtonePicker by lazy { RingtonePicker(this) }
+
+    private var stepBridge: StepCounterBridge? = null
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        stepBridge?.onPermissionResult(requestCode, grantResults)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // Step counting for timed walks and runs.
+        val bridge = StepCounterBridge(this)
+        stepBridge = bridge
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, StepCounterBridge.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (!bridge.handle(call.method, result)) result.notImplemented()
+            }
 
         // Opening the phone's own settings pages, and reading the battery
         // setting that decides whether reminders may run in the background.
@@ -42,6 +62,19 @@ class MainActivity : FlutterActivity() {
                             Uri.fromParts("package", packageName, null)
                         )
                         result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // Notification sound choice (reminder sound setting).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, RingtonePicker.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "pick" -> ringtonePicker.pick(call.argument<String>("current"), result)
+                    "title" -> {
+                        val uri = call.argument<String>("uri")
+                        result.success(if (uri.isNullOrEmpty()) null else ringtonePicker.titleOf(uri))
                     }
                     else -> result.notImplemented()
                 }
@@ -81,6 +114,14 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    @Deprecated("Needed for the ringtone picker result")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (!ringtonePicker.handleResult(requestCode, resultCode, data)) {
+            @Suppress("DEPRECATION")
+            super.onActivityResult(requestCode, resultCode, data)
+        }
     }
 
     private fun openSettings(action: String, data: Uri? = null) {

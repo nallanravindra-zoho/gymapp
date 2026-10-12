@@ -22,7 +22,7 @@ class HabitDetailScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete this habit?'),
-        content: const Text('It will no longer appear in your breaks.'),
+        content: const Text('It will no longer appear in your Healthy Habits.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

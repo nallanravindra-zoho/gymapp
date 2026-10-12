@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,7 +17,9 @@ class AvatarButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.tokens;
-    final name = ref.watch(userStreamProvider).value?.displayName.trim() ?? '';
+    final user = ref.watch(userStreamProvider).value;
+    final name = user?.displayName.trim() ?? '';
+    final photo = user?.avatarUrl;
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: Semantics(
@@ -47,20 +51,16 @@ class AvatarButton extends ConsumerWidget {
                     ],
                   ),
                   alignment: Alignment.center,
-                  child: name.isEmpty
-                      ? Icon(
-                          Icons.person_rounded,
-                          size: size * 0.55,
-                          color: t.cat(Cat.leaf).icon,
+                  clipBehavior: Clip.antiAlias,
+                  child: photo != null && photo.isNotEmpty
+                      ? Image.file(
+                          File(photo),
+                          width: size,
+                          height: size,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _initial(t, name),
                         )
-                      : Text(
-                          name.characters.first.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: size * 0.42,
-                            fontWeight: FontWeight.w700,
-                            color: t.cat(Cat.leaf).icon,
-                          ),
-                        ),
+                      : _initial(t, name),
                 ),
               ),
             ),
@@ -69,4 +69,19 @@ class AvatarButton extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _initial(AppTokens t, String name) => name.isEmpty
+      ? Icon(
+          Icons.person_rounded,
+          size: size * 0.55,
+          color: t.cat(Cat.leaf).icon,
+        )
+      : Text(
+          name.characters.first.toUpperCase(),
+          style: TextStyle(
+            fontSize: size * 0.42,
+            fontWeight: FontWeight.w700,
+            color: t.cat(Cat.leaf).icon,
+          ),
+        );
 }

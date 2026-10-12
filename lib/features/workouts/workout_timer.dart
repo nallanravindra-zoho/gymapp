@@ -9,6 +9,9 @@ class TimerState {
     required this.startedAt,
     this.pausedAt,
     this.pausedMs = 0,
+    this.stepBase,
+    this.intensity,
+    this.note,
   });
 
   final String workoutTypeId;
@@ -19,6 +22,21 @@ class TimerState {
 
   /// Total time spent paused, excluding the current pause.
   final int pausedMs;
+
+  /// Running step total from the phone sensor when the timer started (Walk and
+  /// Run only), or null when steps are not being counted.
+  final int? stepBase;
+
+  /// Optional choices made before starting: `low`, `mid` or `high`, and a note.
+  final String? intensity;
+  final String? note;
+
+  /// Total time paused up to [now], including a pause still in progress.
+  Duration paused(DateTime now) => Duration(
+    milliseconds:
+        pausedMs +
+        (pausedAt == null ? 0 : now.difference(pausedAt!).inMilliseconds),
+  );
 
   bool get isPaused => pausedAt != null;
 
@@ -37,6 +55,9 @@ class TimerState {
       workoutTypeId: workoutTypeId,
       startedAt: startedAt,
       pausedMs: pausedMs + now.difference(pausedAt!).inMilliseconds,
+      stepBase: stepBase,
+      intensity: intensity,
+      note: note,
     );
   }
 
@@ -46,6 +67,9 @@ class TimerState {
         startedAt: startedAt,
         pausedAt: keepPausedAt ? pausedAt : this.pausedAt,
         pausedMs: pausedMs,
+        stepBase: stepBase,
+        intensity: intensity,
+        note: note,
       );
 
   String toJson() => jsonEncode({
@@ -53,6 +77,9 @@ class TimerState {
     'start': startedAt.toUtc().millisecondsSinceEpoch,
     'pausedAt': pausedAt?.toUtc().millisecondsSinceEpoch,
     'pausedMs': pausedMs,
+    'stepBase': stepBase,
+    'intensity': intensity,
+    'note': note,
   });
 
   static TimerState? fromJson(String? raw) {
@@ -70,6 +97,9 @@ class TimerState {
             ? null
             : DateTime.fromMillisecondsSinceEpoch(p, isUtc: true),
         pausedMs: m['pausedMs'] as int,
+        stepBase: m['stepBase'] as int?,
+        intensity: m['intensity'] as String?,
+        note: m['note'] as String?,
       );
     } catch (_) {
       return null;

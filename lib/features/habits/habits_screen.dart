@@ -1,37 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
+import '../../data/seed_tips.dart';
+import '../insights/tips.dart';
+import '../reminders/notification_permission_banner.dart';
 import '../reminders/reminders_screen.dart';
 import 'habit_actions.dart';
 import 'habit_defaults.dart';
-import 'habit_detail_screen.dart';
+import 'habit_manage_screen.dart';
 import 'habit_providers.dart';
 import 'habit_setup_screen.dart';
 import 'reminder_config.dart';
 
-enum _HabitsTab { today, setup }
-
-/// Healthy Habits: today's list with a tick when a target is met, and a
-/// Setup tab to manage habits and their reminders.
-class HabitsScreen extends ConsumerStatefulWidget {
+/// Healthy Habits: today's list with a tick when a target is met, a Manage
+/// link for adding, editing and archiving habits, and general suggestions.
+class HabitsScreen extends ConsumerWidget {
   const HabitsScreen({super.key});
 
   @override
-  ConsumerState<HabitsScreen> createState() => _HabitsScreenState();
-}
-
-class _HabitsScreenState extends ConsumerState<HabitsScreen> {
-  _HabitsTab _tab = _HabitsTab.today;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final habits = ref.watch(activeHabitsProvider).value ?? const <Habit>[];
     final counts = ref.watch(todayHabitCountsProvider).value ?? const {};
     final t = context.tokens;
     final text = Theme.of(context).textTheme;
+    final cards = recommendationsFor([for (final h in habits) h.kind.name]);
 
     return Scaffold(
       appBar: AppBar(
@@ -50,6 +46,16 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
               MaterialPageRoute<void>(builder: (_) => const RemindersScreen()),
             ),
           ),
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const HabitManageScreen(),
+              ),
+            ),
+            child: const Text('Manage'),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: ListView(
@@ -60,36 +66,21 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
           MediaQuery.paddingOf(context).bottom + 24,
         ),
         children: [
-          PillTabs<_HabitsTab>(
-            options: const {
-              _HabitsTab.today: 'Today',
-              _HabitsTab.setup: 'Setup',
-            },
-            selected: _tab,
-            onChanged: (v) => setState(() => _tab = v),
+          NotificationPermissionBanner(
+            remindersOn: habits.any((h) => h.remindersEnabled),
           ),
-          const SizedBox(height: 10),
-          if (habits.isEmpty)
+          if (habits.isEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
               child: Text(
                 'No habits yet. Add one to get started.',
                 style: text.bodyMedium?.copyWith(color: t.textMuted),
               ),
-            )
-          else if (_tab == _HabitsTab.today)
-            for (var i = 0; i < habits.length; i++) ...[
-              if (i > 0) const RowDivider(indent: 72),
-              _TodayRow(habit: habits[i], count: counts[habits[i].id] ?? 0),
-            ]
-          else
-            for (final h in habits) ...[
-              _SetupRow(habit: h),
-              const SizedBox(height: 10),
-            ],
-          if (_tab == _HabitsTab.setup) ...[
-            const SizedBox(height: 8),
+            ),
             FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(kMinTapTarget),
+              ),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const HabitSetupScreen(),
@@ -98,10 +89,53 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
               icon: const Icon(Icons.add_rounded),
               label: const Text('Add habit'),
             ),
+          ] else
+            for (var i = 0; i < habits.length; i++) ...[
+              if (i > 0) const RowDivider(indent: 72),
+              _TodayRow(habit: habits[i], count: counts[habits[i].id] ?? 0),
+            ],
+          const SizedBox(height: 20),
+          for (final r in cards) ...[
+            _RecommendationCard(rec: r),
+            const SizedBox(height: 10),
           ],
-          const SizedBox(height: 26),
+          const SizedBox(height: 16),
           const _HabitsBanner(),
         ],
+      ),
+    );
+  }
+}
+
+/// A general, non-prescriptive suggestion. Its text ends with the
+/// disclaimer, and its source is named underneath.
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard({required this.rec});
+
+  final HabitRecommendation rec;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return Semantics(
+      container: true,
+      label: 'Suggestion: ${rec.title}',
+      child: SoftCard(
+        key: Key('recommendation-${rec.id}'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(rec.title, style: text.titleMedium),
+            const SizedBox(height: 6),
+            Text(rec.text, style: text.bodyMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Source: ${rec.sourceLabel}',
+              style: text.bodySmall?.copyWith(color: t.textMuted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -161,52 +195,6 @@ class _TodayRow extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SetupRow extends StatelessWidget {
-  const _SetupRow({required this.habit});
-
-  final Habit habit;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    final text = Theme.of(context).textTheme;
-    return SoftCard(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => HabitDetailScreen(habitId: habit.id),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      child: Row(
-        children: [
-          TintedIcon(
-            icon: habitIcon(habit.kind),
-            cat: habitCat(habit.kind),
-            size: 50,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(habit.name, style: text.titleMedium),
-                const SizedBox(height: 2),
-                Text(
-                  habit.remindersEnabled
-                      ? '${habit.dailyTarget} per day, ${_interval(habit).toLowerCase()}'
-                      : '${habit.dailyTarget} per day, reminders off',
-                  style: text.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right_rounded, color: t.textMuted),
-        ],
       ),
     );
   }

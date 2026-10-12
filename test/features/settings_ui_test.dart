@@ -62,7 +62,13 @@ void main() {
   group('profile and look', () {
     appTest('the name is saved on the profile', (tester, db) async {
       await openSettings(tester, 'My profile');
-      expect(find.text('Not set'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.widgetWithText(ListTile, 'Name'),
+          matching: find.text('Not set'),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Name'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Divya');
@@ -75,7 +81,7 @@ void main() {
     appTest('dark mode is applied and remembered', (tester, db) async {
       MaterialApp app() => tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(app().themeMode, ThemeMode.system);
-      await openSettings(tester, 'Goals & preferences');
+      await openSettings(tester, 'Appearance');
       await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
       expect(app().themeMode, ThemeMode.dark);
@@ -88,7 +94,7 @@ void main() {
 
   group('reminder and streak settings', () {
     appTest('quiet hours show the defaults', (tester, db) async {
-      await openSettings(tester, 'Notifications');
+      await openSettings(tester, 'Reminders');
       expect(find.text('10:00 PM'), findsOneWidget);
       expect(find.text('7:00 AM'), findsOneWidget);
     });
@@ -97,7 +103,7 @@ void main() {
       tester,
       db,
     ) async {
-      await openSettings(tester, 'Notifications');
+      await openSettings(tester, 'Reminders');
       await scrollTo(tester, 'Most reminders in a day');
       await tester.tap(find.byTooltip('More: Most reminders in a day'));
       await tester.pumpAndSettle();

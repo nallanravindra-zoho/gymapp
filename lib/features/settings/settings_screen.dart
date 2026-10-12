@@ -1,4 +1,7 @@
 import 'package:drift/drift.dart' show Value;
+
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,7 +11,15 @@ import '../../core/theme/tokens.dart';
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
 import '../../data/sync/local_reset.dart';
+import '../../core/widgets/dialogs.dart';
+import '../account/profile_services.dart';
 import '../account/sync_providers.dart';
+import '../../core/time/local_date.dart';
+import '../metrics/bmi_card.dart';
+import '../metrics/metrics_charts.dart' show chartDate;
+import '../metrics/metrics_logic.dart';
+import '../metrics/metrics_providers.dart';
+import '../reminders/reminder_providers.dart';
 import '../groups/groups_providers.dart';
 import '../groups/groups_widgets.dart';
 import '../reminders/reminder_planner.dart';
@@ -19,8 +30,10 @@ import 'data_export.dart';
 /// export, erase on this phone, delete the account.
 enum SettingsSection {
   profile('My profile'),
+  metrics('Personal metrics'),
+  appearance('Appearance'),
+  reminders('Reminders'),
   preferences('Goals & preferences'),
-  notifications('Notifications'),
   data('Privacy & data');
 
   const SettingsSection(this.title);
@@ -41,10 +54,11 @@ class SettingsScreen extends ConsumerWidget {
 
     const sectionOf = {
       'Profile': SettingsSection.profile,
-      'Appearance': SettingsSection.preferences,
+      'Personal metrics': SettingsSection.metrics,
+      'Appearance': SettingsSection.appearance,
       'Streaks': SettingsSection.preferences,
       'Day': SettingsSection.preferences,
-      'Reminders': SettingsSection.notifications,
+      'Reminders': SettingsSection.reminders,
       'Your data': SettingsSection.data,
     };
     Widget block(String title, List<Widget> children, {String? note}) =>
@@ -81,13 +95,50 @@ class SettingsScreen extends ConsumerWidget {
                 MediaQuery.paddingOf(context).bottom + 24,
               ),
               children: [
-                block('Profile', [
-                  _NameTile(user: user),
-                ], note: 'Your name is shown to members of your groups.'),
+                block(
+                  'Profile',
+                  [
+                    const _PhotoTile(),
+                    _NameTile(user: user),
+                    _DobTile(user: user),
+                    const _AgeTile(),
+                    _GenderTile(user: user),
+                  ],
+                  note:
+                      'Your name is shown to members of your groups. Date of '
+                      'birth, gender and picture stay private on this phone '
+                      'and are not shared with groups.',
+                ),
+                block('Personal metrics', [
+                  _NumberTile(
+                    title: 'Height',
+                    unit: 'cm',
+                    value: user.heightCm,
+                    min: 30,
+                    max: 272,
+                    onSave: (v) =>
+                        _save(ref, user, UsersCompanion(heightCm: Value(v))),
+                  ),
+                  _NumberTile(
+                    title: 'Weight',
+                    unit: 'kg',
+                    value: user.weightKg,
+                    min: 1,
+                    max: 500,
+                    onSave: (v) =>
+                        _save(ref, user, UsersCompanion(weightKg: Value(v))),
+                  ),
+                ], note: 'Private to you. Never shared with groups.'),
+                if (section == SettingsSection.metrics) ...[
+                  const SizedBox(height: 16),
+                  const BmiCard(),
+                ],
                 block('Appearance', [const _ThemeTile()]),
                 block(
                   'Reminders',
                   [
+                    const _PermissionWarning(),
+                    _SoundTile(user: user),
                     _QuietHoursTile(user: user, start: true),
                     _QuietHoursTile(user: user, start: false),
                     _StepperTile(
@@ -421,6 +472,359 @@ class _StepperTile extends StatelessWidget {
             ),
             icon: const Icon(Icons.add),
             onPressed: value < max ? () => onChanged(value + 1) : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const _genders = {
+  'female': 'Female',
+  'male': 'Male',
+  'non_binary': 'Non-binary',
+  'prefer_not_to_say': 'Prefer not to say',
+};
+
+class _PhotoTile extends ConsumerWidget {
+  const _PhotoTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userStreamProvider).value;
+    final path = user?.avatarUrl;
+    final t = context.tokens;
+    final has = path != null && path.isNotEmpty;
+    return ListTile(
+      minTileHeight: kMinTapTarget + 16,
+      leading: CircleAvatar(
+        radius: 24,
+        backgroundColor: t.cat(Cat.leaf).tint,
+        backgroundImage: has && File(path).existsSync()
+            ? FileImage(File(path))
+            : null,
+        child: has && File(path).existsSync()
+            ? null
+            : Icon(Icons.person_rounded, color: t.cat(Cat.leaf).icon),
+      ),
+      title: const Text('Profile picture'),
+      subtitle: Text(has ? 'Chosen from your gallery' : 'Choose from gallery'),
+      trailing: has
+          ? IconButton(
+              tooltip: 'Remove profile picture',
+              constraints: const BoxConstraints(
+                minWidth: kMinTapTarget,
+                minHeight: kMinTapTarget,
+              ),
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () async {
+                await ref.read(profilePhotoStoreProvider).remove(path);
+                await _save(
+                  ref,
+                  user!,
+                  const UsersCompanion(avatarUrl: Value(null)),
+                );
+              },
+            )
+          : const Icon(Icons.photo_library_outlined),
+      onTap: () async {
+        if (user == null) return;
+        final store = ref.read(profilePhotoStoreProvider);
+        String? picked;
+        try {
+          picked = await store.chooseFromGallery();
+        } catch (_) {
+          if (context.mounted) {
+            _say(context, 'Could not open your gallery. Try again.');
+          }
+          return;
+        }
+        if (picked == null) return;
+        if (has && path != picked) await store.remove(path);
+        await _save(ref, user, UsersCompanion(avatarUrl: Value(picked)));
+      },
+    );
+  }
+}
+
+class _DobTile extends ConsumerWidget {
+  const _DobTile({required this.user});
+  final User user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dob = user.dateOfBirth;
+    return ListTile(
+      minTileHeight: kMinTapTarget + 8,
+      title: const Text('Date of birth'),
+      subtitle: Text(dob == null ? 'Not set' : chartDate(dob)),
+      trailing: const Icon(Icons.calendar_today_outlined),
+      onTap: () async {
+        final now = ref.read(clockProvider).now().toLocal();
+        final initial = dob == null
+            ? DateTime(now.year - 30, now.month, now.day)
+            : DateTime.parse(dob);
+        final d = await showDatePicker(
+          context: context,
+          initialDate: initial.isAfter(now) ? now : initial,
+          firstDate: DateTime(1900),
+          lastDate: now,
+          helpText: 'Date of birth',
+        );
+        if (d == null) return;
+        await _save(
+          ref,
+          user,
+          UsersCompanion(
+            dateOfBirth: Value(formatLocalDate(d.year, d.month, d.day)),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Age is calculated from the date of birth; it is never typed or stored.
+class _AgeTile extends ConsumerWidget {
+  const _AgeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final age = ref.watch(userAgeProvider);
+    return ListTile(
+      minTileHeight: kMinTapTarget + 8,
+      title: const Text('Age'),
+      subtitle: const Text('Worked out from your date of birth'),
+      trailing: Text(
+        age == null ? 'Not set' : '$age',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    );
+  }
+}
+
+class _GenderTile extends ConsumerWidget {
+  const _GenderTile({required this.user});
+  final User user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      minTileHeight: kMinTapTarget + 8,
+      title: const Text('Gender (optional)'),
+      subtitle: Text(_genders[user.gender] ?? 'Not set'),
+      trailing: const Icon(Icons.edit_outlined),
+      onTap: () async {
+        final picked = await showDialog<String>(
+          context: context,
+          builder: (ctx) => SimpleDialog(
+            title: const Text('Gender'),
+            children: [
+              for (final e in _genders.entries)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, e.key),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(e.value),
+                  ),
+                ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, ''),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Text('Not set'),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (picked == null) return;
+        await _save(
+          ref,
+          user,
+          UsersCompanion(gender: Value(picked.isEmpty ? null : picked)),
+        );
+      },
+    );
+  }
+}
+
+/// A single optional decimal value (height, weight).
+class _NumberTile extends StatelessWidget {
+  const _NumberTile({
+    required this.title,
+    required this.unit,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onSave,
+  });
+
+  final String title;
+  final String unit;
+  final double? value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      minTileHeight: kMinTapTarget + 8,
+      title: Text(title),
+      subtitle: Text(
+        value == null ? 'Not set' : '${formatNumber(value!)} $unit',
+      ),
+      trailing: const Icon(Icons.edit_outlined),
+      onTap: () async {
+        final raw = await showDialog<String>(
+          context: context,
+          builder: (_) => TextPromptDialog(
+            title: title,
+            label: '$title ($unit)',
+            action: 'Save',
+            initial: value == null ? '' : formatNumber(value!),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+        );
+        if (raw == null) return;
+        final v = parseNumber(raw);
+        if (v == null || v < min || v > max) {
+          if (context.mounted) {
+            _say(
+              context,
+              'Enter a number from ${formatNumber(min)} to ${formatNumber(max)}.',
+            );
+          }
+          return;
+        }
+        onSave(v);
+      },
+    );
+  }
+}
+
+/// Reminder sound: the phone's default, or one chosen in the Android picker.
+class _SoundTile extends ConsumerWidget {
+  const _SoundTile({required this.user});
+  final User user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uri = user.reminderSound;
+    return ListTile(
+      minTileHeight: kMinTapTarget + 8,
+      title: const Text('Reminder sound'),
+      subtitle: uri == null
+          ? const Text('Phone default')
+          : FutureBuilder<String?>(
+              key: ValueKey(uri),
+              future: ref.read(ringtonePickerProvider).titleOf(uri),
+              builder: (_, snap) => Text(snap.data ?? 'Chosen sound'),
+            ),
+      trailing: uri == null
+          ? const Icon(Icons.music_note_outlined)
+          : IconButton(
+              tooltip: 'Use phone default sound',
+              constraints: const BoxConstraints(
+                minWidth: kMinTapTarget,
+                minHeight: kMinTapTarget,
+              ),
+              icon: const Icon(Icons.restart_alt_rounded),
+              onPressed: () => _save(
+                ref,
+                user,
+                const UsersCompanion(reminderSound: Value(null)),
+              ),
+            ),
+      onTap: () async {
+        final choice = await ref.read(ringtonePickerProvider).pick(uri);
+        if (choice == null) return;
+        await _save(
+          ref,
+          user,
+          UsersCompanion(reminderSound: Value(choice.uri)),
+        );
+      },
+    );
+  }
+}
+
+/// Shown when the phone no longer allows notifications. Settings stay saved;
+/// this only points to where to switch them back on.
+class _PermissionWarning extends ConsumerStatefulWidget {
+  const _PermissionWarning();
+
+  @override
+  ConsumerState<_PermissionWarning> createState() => _PermissionWarningState();
+}
+
+class _PermissionWarningState extends ConsumerState<_PermissionWarning>
+    with WidgetsBindingObserver {
+  bool? _allowed;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  Future<void> _check() async {
+    final ok = await ref.read(notificationSchedulerProvider).hasPermission();
+    if (mounted) setState(() => _allowed = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_allowed != false) return const SizedBox.shrink();
+    final t = context.tokens;
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: t.cat(Cat.streak).tint,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.notifications_off_outlined,
+                color: t.cat(Cat.streak).icon,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Notifications are turned off for this app on your phone. '
+                  'Your reminder settings are kept, and reminders will not '
+                  'arrive until you allow notifications again.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, kMinTapTarget),
+            ),
+            onPressed: () =>
+                ref.read(systemSettingsProvider).openNotificationSettings(),
+            child: const Text('Open phone settings'),
           ),
         ],
       ),

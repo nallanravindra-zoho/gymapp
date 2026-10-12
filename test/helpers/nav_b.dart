@@ -9,7 +9,19 @@ Future<void> openAccountHub(WidgetTester tester) async {
 /// Opens a row of the Profile & Settings hub, e.g. 'Privacy & data'.
 Future<void> openAccountRow(WidgetTester tester, String label) async {
   await openAccountHub(tester);
-  await tester.tap(find.text(label));
+  const profileRows = {'My profile', 'Personal metrics', 'Body measurements'};
+  if (label == 'Profile Management' || label == 'App Management') {
+    await tester.tap(find.text(label));
+    await tester.pumpAndSettle();
+    return;
+  }
+  // The hub has two entries; rows live one level down (R10).
+  final target = label == 'Notifications' ? 'Reminders' : label;
+  await tester.tap(
+    find.text(profileRows.contains(target) ? 'Profile Management' : 'App Management'),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(target));
   await tester.pumpAndSettle();
 }
 

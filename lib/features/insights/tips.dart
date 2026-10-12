@@ -1,3 +1,4 @@
+import '../../data/seed_tips.dart';
 import '../../data/app_database.dart';
 import 'insight_rules.dart';
 
@@ -58,4 +59,20 @@ int _stableIndex(String seed, int length) {
     h = (h * 31 + c) & 0x7fffffff;
   }
   return h % length;
+}
+
+/// Habit recommendation cards to show for the habits a person tracks (R4).
+/// A card appears when a habit of its kind is active; with no habits at all,
+/// the water and movement cards are offered as a starting point.
+List<HabitRecommendation> recommendationsFor(Iterable<String> habitKinds) {
+  final kinds = habitKinds.toSet();
+  final matching = [
+    for (final r in habitRecommendations)
+      if (kinds.contains(r.habitKind)) r,
+  ];
+  if (matching.isNotEmpty) return matching;
+  return [
+    for (final r in habitRecommendations)
+      if (r.habitKind != 'stretch') r,
+  ];
 }

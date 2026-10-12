@@ -18,6 +18,8 @@ fully offline with no account, and syncing is added on top once you sign in.
 | `tests/four_digit_codes.sql` | Tests for the 4-digit codes and the guessing limit |
 | `migrations/20261012000000_revised_requirements.sql` | Revised requirements: hobbies, hobby logs, body measurements and habit skips (all private, with RLS and sync), new profile / workout / screen-time columns, two new habit kinds, and per-group sharing switches for sleep, screen time and hobbies (off by default). Safe to run twice |
 | `tests/revised_requirements.sql` | Behaviour tests for the above, including that body measurements are never visible to group mates and that deleting an account removes the new rows |
+| `migrations/20261013000000_group_categories.sql` | Groups by category (workouts, Healthy Habits, sleep, screen time): onboarding choices on `create_group`/`join_group`, target-based daily and weekly scoring, the `group_score_snapshots` table, and the functions the group screen reads (`group_available_categories`, `group_overall_board`, `group_category_board`, `group_member_metrics`). The scoring rules are in `docs/group-scoring.md`. Run after 20261012; safe to run twice |
+| `tests/group_categories.sql` | Behaviour tests for the above: every scoring rule with exact numbers, who can see which category, the overall number never being returned, opt-out clearing snapshots, and a guard on which functions may read sleep, screen time and body measurements |
 | `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 
@@ -62,7 +64,9 @@ You need two free accounts: Supabase and Google Cloud.
 1. Sign up at supabase.com and create a project (any name, closest region).
 2. Open **SQL Editor**, paste the contents of
    `migrations/20261007000000_private_data_and_sync.sql`, and run it. For groups, do the same
-   with `migrations/20261008000000_groups.sql` afterwards.
+   with `migrations/20261008000000_groups.sql` afterwards, then the later migrations in
+   date order (the newest, `20261013000000_group_categories.sql`, adds the group tabs
+   and per-category privacy; the app works without it but shows no category tabs).
 3. Open **Project Settings, API** and note two values:
    * **Project URL**
    * **anon public key**
@@ -147,5 +151,18 @@ for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql \
          migrations/20261012000000_revised_requirements.sql \
          tests/revised_requirements.sql; do
   psql -v ON_ERROR_STOP=1 -d wellbeing_revised -f $f
+done
+
+# Group categories and scoring: the same chain plus 20261013 (twice), then its tests:
+createdb wellbeing_categories
+for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql \
+         migrations/20261008000000_groups.sql migrations/20261009000000_delete_account.sql \
+         migrations/20261010000000_numeric_invite_codes.sql \
+         migrations/20261011000000_four_digit_codes.sql \
+         migrations/20261012000000_revised_requirements.sql \
+         migrations/20261013000000_group_categories.sql \
+         migrations/20261013000000_group_categories.sql \
+         tests/group_categories.sql; do
+  psql -v ON_ERROR_STOP=1 -d wellbeing_categories -f $f
 done
 ```

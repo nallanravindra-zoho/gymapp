@@ -146,56 +146,180 @@ void main() {
     });
   });
 
-  group('batching', () {
-    test('reminders within 15 minutes become one notification', () {
-      final a = habit(
-        'water',
-        priority: 0,
-        config: const ReminderConfig(mode: ReminderMode.times, times: [600]),
-      );
-      final b = habit(
-        'stand',
-        kind: 'stand',
-        priority: 1,
-        config: const ReminderConfig(mode: ReminderMode.times, times: [610]),
-      );
-      final r = plan([a, b]);
-      expect(r.length, 1);
-      expect(r.single.habitIds, ['water', 'stand']);
-      expect(r.single.at.minute, 0); // fires at the first time
+  group('separate reminders (no batching)', () {
+    HabitReminderInput at(String id, int m, {int priority = 0}) => habit(
+      id,
+      priority: priority,
+      config: ReminderConfig(mode: ReminderMode.times, times: [m]),
+    );
+
+    test('habits due within minutes of each other stay separate', () {
+      final r = plan([at('water', 600), at('stand', 605, priority: 1)]);
+      expect(r.length, 2);
+      expect(r[0].habitIds, ['water']);
+      expect(r[1].habitIds, ['stand']);
+      expect(r.every((x) => x.habitIds.length == 1), isTrue);
     });
 
-    test('exactly 15 minutes apart still batches; 16 does not', () {
-      HabitReminderInput at(String id, int m) => habit(
-        id,
-        config: ReminderConfig(mode: ReminderMode.times, times: [m]),
-      );
-      expect(plan([at('a', 600), at('b', 615)]).length, 1);
-      expect(plan([at('a', 600), at('b', 616)]).length, 2);
+    test('habits due at the same minute are both kept, important first', () {
+      final r = plan([at('b', 600, priority: 1), at('a', 600)]);
+      expect(r.map((x) => x.habitIds.single), ['a', 'b']);
+      expect(r.map((x) => x.at).toSet().length, 1);
     });
 
-    test('batch window is measured from the first reminder', () {
-      HabitReminderInput at(String id, int m) => habit(
-        id,
-        config: ReminderConfig(mode: ReminderMode.times, times: [m]),
+    test('every planned reminder is for exactly one habit', () {
+      final r = plan([
+        for (var i = 0; i < 4; i++) at('h$i', 600 + i, priority: i),
+      ], cap: 20);
+      expect(r.length, 4);
+      for (final x in r) {
+        expect(x.habitIds.length, 1);
+        expect(x.habitNames.length, 1);
+        expect(x.kinds.length, 1);
+      }
+    });
+  });
+
+  group('repeating schedules (R4)', () {
+    ReminderConfig window(int from, int to, int every) =>
+        ReminderConfig(windowStart: from, windowEnd: to, everyMinutes: every);
+
+    test('12:00 to 17:00 hourly is six reminders, both ends included', () {
+      final c = window(12 * 60, 17 * 60, 60);
+      expect(c.minutesOfDay, [720, 780, 840, 900, 960, 1020]);
+      expect(c.occurrences, 6);
+      final r = plan(
+        [habit('w', config: c)],
+        at: DateTime(2026, 5, 13, 6),
+        cap: 20,
       );
-      // 10:00, 10:10, 10:20: the third is 20 minutes after the first.
-      expect(plan([at('a', 600), at('b', 610), at('c', 620)]).length, 2);
+      expect(r.map((x) => x.at.hour), [12, 13, 14, 15, 16, 17]);
     });
 
-    test('batched wording uses one neutral title', () {
-      final a = habit(
-        'Water',
-        config: const ReminderConfig(mode: ReminderMode.times, times: [600]),
+    test('30 minute windows include the end', () {
+      final c = window(9 * 60, 11 * 60, 30);
+      expect(c.minutesOfDay, [540, 570, 600, 630, 660]);
+      expect(c.occurrences, 5);
+    });
+
+    test('every offered interval counts occurrences, not hours', () {
+      // 09:00 to 17:00.
+      final counts = {
+        for (final m in reminderIntervals)
+          m: window(9 * 60, 17 * 60, m).occurrences,
+      };
+      expect(counts, {30: 17, 60: 9, 120: 5, 180: 3, 240: 3});
+    });
+
+    test('a window that ends off the step stops at the last step inside', () {
+      expect(window(9 * 60, 10 * 60 + 45, 60).minutesOfDay, [540, 600]);
+    });
+
+    test('start equal to end is a single reminder', () {
+      final c = window(9 * 60, 9 * 60, 60);
+      expect(c.occurrences, 1);
+      expect(c.problem, isNull);
+    });
+
+    test('end before start is invalid and plans nothing (no wrap)', () {
+      final c = window(23 * 60, 6 * 60, 60);
+      expect(c.windowReversed, isTrue);
+      expect(c.problem, windowOrderMessage);
+      expect(c.minutesOfDay, isEmpty);
+      expect(
+        plan([habit('w', config: c)], at: DateTime(2026, 5, 13, 0, 1), days: 3),
+        isEmpty,
       );
-      final b = habit(
-        'Stand',
-        kind: 'stand',
-        config: const ReminderConfig(mode: ReminderMode.times, times: [605]),
+    });
+
+    test('reversed windows are only a problem when repeating', () {
+      const c = ReminderConfig(
+        mode: ReminderMode.times,
+        times: [600],
+        windowStart: 23 * 60,
+        windowEnd: 6 * 60,
       );
-      final t = reminderText(plan([a, b]).single);
-      expect(t.title, 'Break time.');
-      expect(t.body, 'Water, Stand');
+      expect(c.windowReversed, isFalse);
+      expect(c.problem, isNull);
+    });
+
+    test('problems: no times and no days', () {
+      expect(
+        const ReminderConfig(mode: ReminderMode.times).problem,
+        'Add at least one reminder time.',
+      );
+      expect(
+        const ReminderConfig(activeDays: {}).problem,
+        'Choose at least one day.',
+      );
+      expect(const ReminderConfig().problem, isNull);
+    });
+
+    test('offered intervals are 30 minutes and 1 to 4 hours', () {
+      expect(reminderIntervals, [30, 60, 120, 180, 240]);
+    });
+
+    test('hourly reminders respect quiet hours', () {
+      final c = window(20 * 60, 23 * 60, 60); // 20, 21, 22, 23
+      final r = plan([habit('w', config: c)], at: DateTime(2026, 5, 13, 6));
+      expect(r.map((x) => x.at.hour), [20, 21]); // 22:00 onwards is quiet
+    });
+
+    test('hourly reminders respect the daily cap', () {
+      final c = window(8 * 60, 18 * 60, 60); // eleven
+      final r = plan(
+        [habit('w', config: c)],
+        at: DateTime(2026, 5, 13, 6),
+        cap: 4,
+        days: 2,
+      );
+      expect(r.length, 8);
+      expect(r.where((x) => x.at.day == 13).length, 4);
+      expect(r.where((x) => x.at.day == 14).length, 4);
+    });
+
+    test('a met target suppresses the rest of today only', () {
+      final c = window(12 * 60, 17 * 60, 60);
+      final r = plan(
+        [habit('w', config: c)],
+        at: DateTime(2026, 5, 13, 6),
+        met: {'w'},
+        days: 2,
+        cap: 20,
+      );
+      expect(r.length, 6);
+      expect(r.every((x) => x.at.day == 14), isTrue);
+    });
+
+    test('only the habit that met its target is suppressed', () {
+      final c = window(12 * 60, 14 * 60, 60);
+      final r = plan(
+        [habit('a', config: c), habit('b', priority: 1, config: c)],
+        at: DateTime(2026, 5, 13, 6),
+        met: {'a'},
+        cap: 20,
+      );
+      expect(r.map((x) => x.habitIds.single).toSet(), {'b'});
+      expect(r.length, 3);
+    });
+
+    test('reminders are independent per habit', () {
+      final r = plan([
+        habit('a', config: window(9 * 60, 10 * 60, 60)),
+        habit(
+          'b',
+          priority: 1,
+          config: const ReminderConfig(
+            mode: ReminderMode.times,
+            times: [15 * 60],
+          ),
+        ),
+      ], at: DateTime(2026, 5, 13, 6));
+      expect(r.map((x) => '${x.habitIds.single}@${x.at.hour}'), [
+        'a@9',
+        'a@10',
+        'b@15',
+      ]);
     });
   });
 
@@ -236,64 +360,6 @@ void main() {
     });
   });
 
-  group('snooze', () {
-    PlannedReminder original({int snoozes = 0}) => PlannedReminder(
-      at: DateTime(2026, 5, 13, 10),
-      habitIds: const ['a', 'b'],
-      habitNames: const ['A', 'B'],
-      kinds: const ['water', 'stand'],
-      priority: 0,
-      snoozeCount: snoozes,
-    );
-
-    test('schedules 30 minutes from now and counts the snooze', () {
-      final s = planSnooze(
-        original: original(),
-        now: DateTime(2026, 5, 13, 10, 5),
-        metToday: {},
-      );
-      expect(s!.at, DateTime(2026, 5, 13, 10, 35));
-      expect(s.snoozeCount, 1);
-    });
-
-    test('capped at two snoozes', () {
-      final now = DateTime(2026, 5, 13, 10);
-      expect(
-        planSnooze(
-          original: original(snoozes: 1),
-          now: now,
-          metToday: {},
-        )!.snoozeCount,
-        2,
-      );
-      expect(
-        planSnooze(original: original(snoozes: 2), now: now, metToday: {}),
-        isNull,
-      );
-    });
-
-    test('not into quiet hours', () {
-      expect(
-        planSnooze(
-          original: original(),
-          now: DateTime(2026, 5, 13, 21, 45),
-          metToday: {},
-        ),
-        isNull,
-      );
-    });
-
-    test('drops habits whose target is met, and nothing if all are', () {
-      final now = DateTime(2026, 5, 13, 10);
-      final one = planSnooze(original: original(), now: now, metToday: {'a'});
-      expect(one!.habitIds, ['b']);
-      expect(
-        planSnooze(original: original(), now: now, metToday: {'a', 'b'}),
-        isNull,
-      );
-    });
-  });
-
   group('wording', () {
     PlannedReminder one(String kind, String name) => PlannedReminder(
       at: now,
@@ -304,18 +370,38 @@ void main() {
     );
 
     test('matches the microcopy rules', () {
-      expect(reminderText(one('water', 'Water')).title, 'Water break.');
+      expect(reminderText(one('water', 'Water')).title, 'Time for some water.');
       expect(
         reminderText(one('stand', 'Stand')).title,
         'Stand and move for a minute.',
       );
-      expect(reminderText(one('stretch', 'Stretch')).title, 'Stretch break.');
-      expect(reminderText(one('custom', 'Read')).title, 'Read.');
+      expect(
+        reminderText(one('stretch', 'Stretch')).title,
+        'Time for a stretch.',
+      );
+      expect(
+        reminderText(one('moisturize', 'Moisturize')).title,
+        'Time to moisturize.',
+      );
+      expect(
+        reminderText(one('skinCare', 'Skin care')).title,
+        'Time for skin care.',
+      );
+      expect(reminderText(one('custom', 'Meditation')).title, 'Meditation.');
     });
 
-    test('no exclamation marks anywhere', () {
-      for (final k in ['water', 'stand', 'stretch', 'custom']) {
-        expect(reminderText(one(k, 'Name')).title.contains('!'), isFalse);
+    test('no exclamation marks and no snooze wording', () {
+      for (final k in [
+        'water',
+        'stand',
+        'stretch',
+        'moisturize',
+        'skinCare',
+        'custom',
+      ]) {
+        final t = reminderText(one(k, 'Name')).title;
+        expect(t.contains('!'), isFalse);
+        expect(t.toLowerCase().contains('snooze'), isFalse);
       }
     });
   });

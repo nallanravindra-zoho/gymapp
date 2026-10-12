@@ -48,6 +48,48 @@ class WorkoutRepository {
         .watch();
   }
 
+  /// Every type including deleted custom ones, so past workouts keep their
+  /// names and icons.
+  Stream<List<WorkoutType>> watchAllTypes(String userId) {
+    return (_db.select(_db.workoutTypes)
+          ..where((t) => t.isBuiltin.equals(true) | t.userId.equals(userId))
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+        .watch();
+  }
+
+  Future<void> renameCustomType(String id, String name) =>
+      (_db.update(
+        _db.workoutTypes,
+      )..where((t) => t.id.equals(id) & t.isBuiltin.equals(false))).write(
+        WorkoutTypesCompanion(
+          name: Value(name),
+          updatedAt: Value(_clock.now()),
+        ),
+      );
+
+  /// Removes a custom type from the picker. Workouts already logged with it
+  /// stay in history.
+  Future<void> deleteCustomType(String id) =>
+      (_db.update(
+        _db.workoutTypes,
+      )..where((t) => t.id.equals(id) & t.isBuiltin.equals(false))).write(
+        WorkoutTypesCompanion(
+          deletedAt: Value(_clock.now()),
+          updatedAt: Value(_clock.now()),
+        ),
+      );
+
+  Future<WorkoutType?> typeById(String id) => (_db.select(
+    _db.workoutTypes,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  /// One live workout, or null once deleted.
+  Stream<Workout?> watchById(String id) {
+    return (_db.select(_db.workouts)
+          ..where((w) => w.id.equals(id) & w.deletedAt.isNull()))
+        .watchSingleOrNull();
+  }
+
   Future<WorkoutType> addCustomType({
     required String userId,
     required String name,
@@ -147,6 +189,7 @@ class WorkoutRepository {
     WorkoutIntensity? intensity,
     bool clearIntensity = false,
     String? note,
+    WorkoutMetrics? metrics,
   }) async {
     final current = await (_db.select(
       _db.workouts,
@@ -170,6 +213,28 @@ class WorkoutRepository {
             ? const Value.absent()
             : Value(intensity),
         note: note == null ? const Value.absent() : Value(note),
+        caloriesEstimate: metrics == null
+            ? const Value.absent()
+            : Value(metrics.caloriesEstimate),
+        steps: metrics == null ? const Value.absent() : Value(metrics.steps),
+        stepsSource: metrics == null
+            ? const Value.absent()
+            : Value(metrics.stepsSource),
+        distanceKm: metrics == null
+            ? const Value.absent()
+            : Value(metrics.distanceKm),
+        avgSpeedKmh: metrics == null
+            ? const Value.absent()
+            : Value(metrics.avgSpeedKmh),
+        pausedSeconds: metrics == null
+            ? const Value.absent()
+            : Value(metrics.pausedSeconds),
+        activeSeconds: metrics == null
+            ? const Value.absent()
+            : Value(metrics.activeSeconds),
+        metricsNote: metrics == null
+            ? const Value.absent()
+            : Value(metrics.metricsNote),
         tzOffsetMinutes: Value(offset),
         localDate: Value(
           localDateOf(

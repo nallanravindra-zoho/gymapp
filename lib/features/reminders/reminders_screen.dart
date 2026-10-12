@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/providers.dart';
+import 'notification_permission_banner.dart';
 import 'reminder_planner.dart';
 import 'reminder_providers.dart';
 
@@ -106,6 +107,11 @@ class RemindersScreen extends ConsumerWidget {
             MediaQuery.paddingOf(context).bottom + 24,
           ),
           children: [
+            NotificationPermissionBanner(
+              remindersOn:
+                  data.value?.enabledHabits != null &&
+                  data.value!.enabledHabits > 0,
+            ),
             data.when(
               loading: () => const SizedBox(height: 120),
               error: (_, _) => const Text('Could not load reminders.'),
