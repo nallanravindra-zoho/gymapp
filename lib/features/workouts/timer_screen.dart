@@ -3,9 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/section_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/app_widgets.dart';
 import '../../data/providers.dart';
 import 'workout_icons.dart';
 import 'workout_providers.dart';
@@ -69,6 +68,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final timer = ref.watch(activeTimerProvider).value;
     final types = ref.watch(workoutTypesProvider).value ?? const [];
     final t = context.tokens;
+    final dark = Theme.of(context).brightness == Brightness.dark;
 
     if (timer == null) {
       return const Scaffold(body: SizedBox.shrink());
@@ -77,90 +77,184 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final type = types.where((x) => x.id == timer.workoutTypeId).firstOrNull;
     final elapsed = timer.elapsed(ref.read(clockProvider).now());
     final notifier = ref.read(activeTimerProvider.notifier);
+    final text = Theme.of(context).textTheme;
 
-    return SectionTheme(
-      section: AppSection.workout,
-      child: Scaffold(
-        backgroundColor: t.accent.withValues(alpha: 0.08),
-        appBar: AppBar(backgroundColor: Colors.transparent),
-        body: SafeArea(
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(backgroundColor: Colors.transparent),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: dark
+                ? const [Color(0xFF16231E), Color(0xFF1B2D26)]
+                : const [Color(0xFFE9F6EE), Color(0xFFD3F0E1)],
+          ),
+        ),
+        child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
             child: Column(
               children: [
-                const Spacer(),
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: t.accent.withValues(alpha: 0.15),
-                  child: Icon(
-                    workoutIcon(type?.iconKey ?? 'other'),
-                    size: 36,
-                    color: t.accent,
-                  ),
+                const SizedBox(height: 28),
+                TintedIcon(
+                  icon: workoutIcon(type?.iconKey ?? 'other'),
+                  tint: dark
+                      ? const Color(0xFF2C4A3D)
+                      : const Color(0xFFBFE8D2),
+                  color: dark
+                      ? const Color(0xFF86DDA9)
+                      : const Color(0xFF1D6D57),
+                  size: 92,
+                  iconSize: 48,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  type?.name ?? 'Workout',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                Text(type?.name ?? 'Workout', style: text.headlineSmall),
+                const SizedBox(height: 4),
                 Text(
                   timer.isPaused ? 'Paused' : 'In progress',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: text.titleMedium?.copyWith(color: t.accent),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 34),
                 Semantics(
                   liveRegion: false,
                   label: 'Elapsed ${formatElapsed(elapsed)}',
                   child: Text(
                     formatElapsed(elapsed),
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontSize: 56,
+                    style: text.displaySmall?.copyWith(
+                      fontSize: 60,
+                      color: t.accentDeep,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 38),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton.filled(
-                      iconSize: 36,
-                      constraints: const BoxConstraints(
-                        minWidth: 72,
-                        minHeight: 72,
-                      ),
+                    _RoundButton(
+                      size: 88,
+                      color: t.accent,
                       tooltip: timer.isPaused ? 'Resume' : 'Pause',
                       onPressed: timer.isPaused
                           ? notifier.resume
                           : notifier.pause,
-                      icon: Icon(
+                      child: Icon(
                         timer.isPaused
                             ? Icons.play_arrow_rounded
                             : Icons.pause_rounded,
+                        size: 44,
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(width: 24),
-                    IconButton.outlined(
-                      iconSize: 32,
-                      constraints: const BoxConstraints(
-                        minWidth: 72,
-                        minHeight: 72,
-                      ),
+                    const SizedBox(width: 26),
+                    _RoundButton(
+                      size: 76,
+                      color: t.surface,
                       tooltip: 'Stop and save',
                       onPressed: _stop,
-                      icon: const Icon(Icons.stop_rounded),
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: t.text,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const Spacer(),
+                SoftCard(
+                  color: t.surface,
+                  borderColor: Colors.transparent,
+                  radius: 24,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
+                  ),
+                  child: Row(
+                    children: [
+                      const SproutIcon(size: 62),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("You've got this.", style: text.titleMedium),
+                            const SizedBox(height: 4),
+                            Text(
+                              'A little progress each day adds up to big results.',
+                              style: text.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(kMinTapTarget),
+                    minimumSize: const Size.fromHeight(52),
                   ),
                   onPressed: _cancel,
                   child: const Text('Cancel'),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundButton extends StatelessWidget {
+  const _RoundButton({
+    required this.size,
+    required this.color,
+    required this.tooltip,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final double size;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x261B2B45),
+                blurRadius: 14,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onPressed,
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Center(child: ExcludeSemantics(child: child)),
+              ),
             ),
           ),
         ),

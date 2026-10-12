@@ -65,9 +65,11 @@ void appTest(
   String? setupIssue,
   FakeRemoteStore? remote,
   FakeGroupsRemote? groups,
+  Widget Function(Widget app)? wrapApp,
+  Map<String, Object> prefs = const {},
 }) {
   testWidgets(name, (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(prefs);
     drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.75;
@@ -96,10 +98,13 @@ void appTest(
           groupsRemoteProvider.overrideWithValue(testGroups),
           exportSinkProvider.overrideWithValue(testExport),
           textSharerProvider.overrideWithValue(testShare),
+          showSplashProvider.overrideWithValue(false),
           databaseProvider.overrideWithValue(db),
           clockProvider.overrideWithValue(FixedClock(testNow)),
         ],
-        child: const WellbeingApp(),
+        child: wrapApp == null
+            ? const WellbeingApp()
+            : wrapApp(const WellbeingApp()),
       ),
     );
     await tester.pumpAndSettle();

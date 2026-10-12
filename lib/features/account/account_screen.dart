@@ -4,20 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/app_widgets.dart';
+import '../streaks/streak_providers.dart';
 import '../settings/settings_screen.dart';
 import 'auth_service.dart';
 import 'sync_providers.dart';
 
 /// Sign-in and sync status. Everything in the app works without an account;
 /// signing in adds backup and use on more than one phone.
-class AccountScreen extends ConsumerStatefulWidget {
-  const AccountScreen({super.key});
+class SyncAccountScreen extends ConsumerStatefulWidget {
+  const SyncAccountScreen({super.key});
 
   @override
-  ConsumerState<AccountScreen> createState() => _AccountScreenState();
+  ConsumerState<SyncAccountScreen> createState() => _SyncAccountScreenState();
 }
 
-class _AccountScreenState extends ConsumerState<AccountScreen> {
+class _SyncAccountScreenState extends ConsumerState<SyncAccountScreen> {
   bool _signingIn = false;
 
   Future<void> _signIn() async {
@@ -155,7 +157,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Account & sync')),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
@@ -163,21 +165,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           16,
           MediaQuery.paddingOf(context).bottom + 24,
         ),
-        children: [
-          Card(
-            child: ListTile(
-              minTileHeight: kMinTapTarget + 8,
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Settings'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          body,
-        ],
+        children: [body],
       ),
     );
   }
@@ -240,6 +228,155 @@ class _ConflictCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Profile & Settings: who you are, and where each group of settings lives.
+class AccountScreen extends ConsumerWidget {
+  const AccountScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    final local = ref.watch(userStreamProvider).value?.displayName.trim() ?? '';
+    final account = ref.watch(authUserProvider).value;
+    final name = local.isNotEmpty
+        ? local
+        : (account?.displayName ?? account?.email ?? 'You');
+
+    void open(Widget screen) =>
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => screen));
+
+    Widget row(
+      IconData icon,
+      String title,
+      Widget Function() screen, {
+      bool last = false,
+    }) => Column(
+      children: [
+        InkWell(
+          onTap: () => open(screen()),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 66),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  Icon(icon, size: 26, color: t.text.withValues(alpha: 0.8)),
+                  const SizedBox(width: 18),
+                  Expanded(child: Text(title, style: text.bodyLarge)),
+                  Icon(Icons.chevron_right_rounded, color: t.textMuted),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (!last) const RowDivider(indent: 62),
+      ],
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile & Settings'),
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          MediaQuery.paddingOf(context).bottom + 24,
+        ),
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: t.cat(Cat.leaf).tint,
+                  border: Border.all(color: t.surface, width: 3),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1F1B2B45),
+                      blurRadius: 12,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  name.characters.first.toUpperCase(),
+                  style: text.headlineMedium?.copyWith(
+                    color: t.cat(Cat.leaf).icon,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: text.titleLarge),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Well Being Companion',
+                      style: text.bodyLarge?.copyWith(color: t.accent),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          SoftCard(
+            padding: EdgeInsets.zero,
+            radius: 22,
+            child: Column(
+              children: [
+                row(
+                  Icons.person_outline_rounded,
+                  SettingsSection.profile.title,
+                  () => const SettingsScreen(section: SettingsSection.profile),
+                ),
+                row(
+                  Icons.tune_rounded,
+                  SettingsSection.preferences.title,
+                  () => const SettingsScreen(
+                    section: SettingsSection.preferences,
+                  ),
+                ),
+                row(
+                  Icons.notifications_none_rounded,
+                  SettingsSection.notifications.title,
+                  () => const SettingsScreen(
+                    section: SettingsSection.notifications,
+                  ),
+                ),
+                row(
+                  Icons.lock_outline_rounded,
+                  SettingsSection.data.title,
+                  () => const SettingsScreen(section: SettingsSection.data),
+                ),
+                row(
+                  Icons.cloud_sync_outlined,
+                  'Account & sync',
+                  () => const SyncAccountScreen(),
+                  last: true,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

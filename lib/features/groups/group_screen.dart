@@ -6,18 +6,13 @@ import '../../core/theme/tokens.dart';
 import '../../core/time/local_date.dart';
 import '../../data/providers.dart';
 import '../account/sync_providers.dart';
-import '../week/day_sheet.dart' show monthNames;
+import '../week/day_format.dart' show monthNames;
+import '../../core/widgets/app_widgets.dart';
 import 'group_settings_screen.dart';
+import 'groups_ui.dart';
 import 'groups_models.dart';
 import 'groups_providers.dart';
 import 'groups_widgets.dart';
-
-String _minutes(int m) {
-  final h = m ~/ 60;
-  final r = m % 60;
-  if (h == 0) return '$r min';
-  return r == 0 ? '$h h' : '$h h $r min';
-}
 
 String _weekRange(String weekStart) {
   final a = parseLocalDate(weekStart);
@@ -83,11 +78,11 @@ class GroupScreen extends ConsumerWidget {
           children: [
             _LeaderboardSection(groupId: groupId, me: me),
             const SizedBox(height: 24),
-            Text('Activity', style: text.titleLarge),
+            Text('Activity', style: text.titleMedium),
             const SizedBox(height: 8),
             _FeedSection(groupId: groupId, me: me, names: names),
             const SizedBox(height: 24),
-            Text('Members', style: text.titleLarge),
+            Text('Members', style: text.titleMedium),
             const SizedBox(height: 8),
             _MembersSection(roster: roster, me: me),
           ],
@@ -113,59 +108,29 @@ class _LeaderboardSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('This week', style: text.titleLarge),
+        Text('This week', style: text.titleMedium),
         if (week != null) Text(_weekRange(week), style: muted),
         const SizedBox(height: 12),
-        SegmentedButton<LeaderboardMetric>(
-          segments: const [
-            ButtonSegment(
-              value: LeaderboardMetric.volume,
-              label: Text('Volume'),
-            ),
-            ButtonSegment(
-              value: LeaderboardMetric.consistency,
-              label: Text('Consistency'),
-            ),
-          ],
-          selected: {metric},
-          onSelectionChanged: (s) =>
-              ref.read(leaderboardMetricProvider.notifier).set(s.first),
+        PillTabs<LeaderboardMetric>(
+          outlined: true,
+          height: 42,
+          options: const {
+            LeaderboardMetric.volume: 'Volume',
+            LeaderboardMetric.consistency: 'Consistency',
+          },
+          selected: metric,
+          onChanged: (m) => ref.read(leaderboardMetricProvider.notifier).set(m),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         switch (board) {
           AsyncData(value: final entries) when entries.isEmpty => Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text('No one is sharing workouts yet.', style: muted),
           ),
-          AsyncData(value: final entries) => Card(
-            child: Column(
-              children: [
-                for (final r in rankLeaderboard(entries, metric))
-                  ListTile(
-                    minTileHeight: kMinTapTarget,
-                    leading: SizedBox(
-                      width: 28,
-                      child: Text('${r.rank}', style: text.titleMedium),
-                    ),
-                    title: Text(
-                      r.entry.userId == me
-                          ? 'You'
-                          : memberName(r.entry.displayName),
-                    ),
-                    subtitle: Text(
-                      metric == LeaderboardMetric.volume
-                          ? '${r.entry.activeDays} active ${r.entry.activeDays == 1 ? 'day' : 'days'}'
-                          : _minutes(r.entry.activeMinutes),
-                    ),
-                    trailing: Text(
-                      metric == LeaderboardMetric.volume
-                          ? _minutes(r.entry.activeMinutes)
-                          : '${r.entry.activeDays} ${r.entry.activeDays == 1 ? 'day' : 'days'}',
-                      style: text.titleMedium,
-                    ),
-                  ),
-              ],
-            ),
+          AsyncData(value: final entries) => LeaderboardCard(
+            entries: entries,
+            metric: metric,
+            me: me,
           ),
           AsyncError() => Text('Could not load the leaderboard.', style: muted),
           _ => const Padding(
@@ -227,29 +192,49 @@ class _FeedSection extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text('Nothing shared yet.', style: muted),
       ),
-      AsyncData(value: final events) => Card(
+      AsyncData(value: final events) => SoftCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Column(
           children: [
-            for (final e in events)
+            for (var i = 0; i < events.length; i++) ...[
+              if (i > 0) const RowDivider(indent: 56),
               ListTile(
-                minTileHeight: kMinTapTarget + 8,
+                contentPadding: EdgeInsets.zero,
+                minTileHeight: kMinTapTarget + 12,
+                leading: TintedIcon(
+                  icon: switch (events[i].kind) {
+                    GroupEventKind.workout => Icons.directions_run_rounded,
+                    GroupEventKind.breakGoal => Icons.water_drop_rounded,
+                    GroupEventKind.milestone => Icons.emoji_events_rounded,
+                  },
+                  cat: switch (events[i].kind) {
+                    GroupEventKind.workout => Cat.workout,
+                    GroupEventKind.breakGoal => Cat.water,
+                    GroupEventKind.milestone => Cat.trophy,
+                  },
+                  size: 42,
+                ),
                 title: Text(
                   describeEvent(
-                    e,
-                    e.userId == me ? 'You' : names[e.userId] ?? 'A member',
+                    events[i],
+                    events[i].userId == me
+                        ? 'You'
+                        : names[events[i].userId] ?? 'A member',
                   ),
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w500),
                 ),
-                subtitle: Text(when(e.occurredAt)),
-                trailing: e.userId == me
-                    ? (e.cheeredBy.isEmpty
+                subtitle: Text(when(events[i].occurredAt)),
+                trailing: events[i].userId == me
+                    ? (events[i].cheeredBy.isEmpty
                           ? null
-                          : Text('${e.cheeredBy.length} cheered'))
+                          : Text('${events[i].cheeredBy.length} cheered'))
                     : _CheerButton(
-                        cheered: me != null && e.cheeredBy.contains(me),
-                        count: e.cheeredBy.length,
-                        onChanged: (v) => cheer(e, v),
+                        cheered: me != null && events[i].cheeredBy.contains(me),
+                        count: events[i].cheeredBy.length,
+                        onChanged: (v) => cheer(events[i], v),
                       ),
               ),
+            ],
           ],
         ),
       ),
@@ -297,15 +282,24 @@ class _MembersSection extends StatelessWidget {
     final muted = Theme.of(context).textTheme.bodySmall
         ?.copyWith(color: context.tokens.textMuted);
     return switch (roster) {
-      AsyncData(value: final members) => Card(
+      AsyncData(value: final members) => SoftCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Column(
           children: [
-            for (final m in members)
+            for (var i = 0; i < members.length; i++) ...[
+              if (i > 0) const RowDivider(indent: 56),
               ListTile(
-                minTileHeight: kMinTapTarget,
-                title: Text(m.userId == me ? 'You' : memberName(m.displayName)),
-                trailing: m.isOwner ? const Text('Owner') : null,
+                contentPadding: EdgeInsets.zero,
+                minTileHeight: kMinTapTarget + 4,
+                leading: MemberAvatar(name: members[i].displayName, size: 40),
+                title: Text(
+                  members[i].userId == me
+                      ? 'You'
+                      : memberName(members[i].displayName),
+                ),
+                trailing: members[i].isOwner ? const Text('Owner') : null,
               ),
+            ],
           ],
         ),
       ),

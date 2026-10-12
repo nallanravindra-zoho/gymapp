@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'tokens.dart';
-
 enum AppSection { workout, sleep, hobby, neutral }
 
-/// Applies a section's identity (spec 4.1) on top of the base theme:
-/// workout is bolder, sleep is calmer with a cool wash, hobby is warm.
-/// Screens are shared; only this wrapper varies.
+/// Kept so screens can still say which section they belong to, but every
+/// section now shares the same calm look as the reference screens (spec 4.1
+/// as revised on 10 October): one background, one type scale.
 class SectionTheme extends StatelessWidget {
   const SectionTheme({super.key, required this.section, required this.child});
 
@@ -14,35 +12,5 @@ class SectionTheme extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    final t = context.tokens;
-
-    final (Color? wash, FontWeight weight, double spacing) = switch (section) {
-      AppSection.workout => (null, FontWeight.w700, 1.0),
-      AppSection.sleep => (t.tintSleep, FontWeight.w300, 1.25),
-      AppSection.hobby => (t.tintHobby, FontWeight.w500, 1.1),
-      AppSection.neutral => (null, FontWeight.w400, 1.0),
-    };
-
-    final themed = base.copyWith(
-      scaffoldBackgroundColor: wash ?? base.scaffoldBackgroundColor,
-      textTheme: base.textTheme.copyWith(
-        bodyMedium: base.textTheme.bodyMedium?.copyWith(
-          fontWeight: section == AppSection.neutral ? null : weight,
-          height: spacing,
-        ),
-        titleLarge: base.textTheme.titleLarge?.copyWith(
-          fontWeight: section == AppSection.neutral ? null : weight,
-        ),
-      ),
-    );
-
-    // A Material (not a ColoredBox) so list tiles and buttons inside still
-    // paint their ink on top of the wash.
-    return Theme(
-      data: themed,
-      child: wash == null ? child : Material(color: wash, child: child),
-    );
-  }
+  Widget build(BuildContext context) => child;
 }

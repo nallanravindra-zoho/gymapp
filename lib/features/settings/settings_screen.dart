@@ -17,8 +17,21 @@ import 'data_export.dart';
 
 /// Profile, appearance, reminder and streak settings, and the person's data:
 /// export, erase on this phone, delete the account.
+enum SettingsSection {
+  profile('My profile'),
+  preferences('Goals & preferences'),
+  notifications('Notifications'),
+  data('Privacy & data');
+
+  const SettingsSection(this.title);
+  final String title;
+}
+
 class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.section});
+
+  /// Which part to show; null shows everything.
+  final SettingsSection? section;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,28 +39,38 @@ class SettingsScreen extends ConsumerWidget {
     final signedIn = ref.watch(authUserProvider).value != null;
     final text = Theme.of(context).textTheme;
 
-    Widget section(String title, List<Widget> children, {String? note}) =>
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 24),
-            Text(title, style: text.titleLarge),
-            if (note != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                note,
-                style: text.bodySmall?.copyWith(
-                  color: context.tokens.textMuted,
+    const sectionOf = {
+      'Profile': SettingsSection.profile,
+      'Appearance': SettingsSection.preferences,
+      'Streaks': SettingsSection.preferences,
+      'Day': SettingsSection.preferences,
+      'Reminders': SettingsSection.notifications,
+      'Your data': SettingsSection.data,
+    };
+    Widget block(String title, List<Widget> children, {String? note}) =>
+        section != null && sectionOf[title] != section
+        ? const SizedBox.shrink()
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 24),
+              Text(title, style: text.titleLarge),
+              if (note != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  note,
+                  style: text.bodySmall?.copyWith(
+                    color: context.tokens.textMuted,
+                  ),
                 ),
-              ),
+              ],
+              const SizedBox(height: 8),
+              Card(child: Column(children: children)),
             ],
-            const SizedBox(height: 8),
-            Card(child: Column(children: children)),
-          ],
-        );
+          );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(section?.title ?? 'Settings')),
       body: user == null
           ? const SizedBox.shrink()
           : ListView(
@@ -58,11 +81,11 @@ class SettingsScreen extends ConsumerWidget {
                 MediaQuery.paddingOf(context).bottom + 24,
               ),
               children: [
-                section('Profile', [
+                block('Profile', [
                   _NameTile(user: user),
                 ], note: 'Your name is shown to members of your groups.'),
-                section('Appearance', [const _ThemeTile()]),
-                section(
+                block('Appearance', [const _ThemeTile()]),
+                block(
                   'Reminders',
                   [
                     _QuietHoursTile(user: user, start: true),
@@ -84,7 +107,7 @@ class SettingsScreen extends ConsumerWidget {
                       'No reminders are sent during quiet hours. If more are '
                       'due than the daily limit, the least important are dropped.',
                 ),
-                section('Streaks', [
+                block('Streaks', [
                   _StepperTile(
                     title: 'Rest days per week',
                     value: user.weeklyRestDays,
@@ -123,7 +146,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                 ], note: 'Changes apply to your streaks straight away.'),
-                section(
+                block(
                   'Day',
                   [
                     _StepperTile(
@@ -143,7 +166,7 @@ class SettingsScreen extends ConsumerWidget {
                       'Entries before this time count towards the previous '
                       'day. Entries already logged keep their day.',
                 ),
-                section('Your data', [
+                block('Your data', [
                   ListTile(
                     minTileHeight: kMinTapTarget + 8,
                     title: const Text('Export all data'),

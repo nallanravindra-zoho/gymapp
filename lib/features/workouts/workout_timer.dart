@@ -82,5 +82,5 @@ String formatElapsed(Duration d) {
   final h = d.inHours;
   final m = d.inMinutes.remainder(60);
   final s = d.inSeconds.remainder(60);
-  return h > 0 ? '${two(h)}:${two(m)}:${two(s)}' : '${two(m)}:${two(s)}';
+  return '${two(h)}:${two(m)}:${two(s)}';
 }
