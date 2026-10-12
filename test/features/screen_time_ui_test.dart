@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/features/screen_time/usage_source.dart';
 
 import '../helpers/nav_b.dart';
@@ -16,6 +17,15 @@ FakeUsageSource withData() => FakeUsageSource(
     '2026-05-11': const DayUsage(totalMinutes: 300),
   },
 );
+
+void _backgroundAndResume(WidgetTester tester) {
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+}
 
 void main() {
   appTest('without access Today says screen time is not set up', (
@@ -34,9 +44,10 @@ void main() {
 
     expect(find.text('Allow usage access'), findsOneWidget);
     expect(find.textContaining('Only daily totals are kept'), findsOneWidget);
+    expect(find.textContaining('no websites are recorded'), findsOneWidget);
     expect(testUsage.openSettingsCalls, 0); // not opened until asked
 
-    await tester.tap(find.text('Open settings'));
+    await tester.tap(find.text('Grant Usage Access'));
     await tester.pumpAndSettle();
     expect(testUsage.openSettingsCalls, 1);
 
@@ -44,6 +55,93 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Allow usage access'), findsNothing);
   });
+
+  appTest('access is verified when the person returns from settings', (
+    tester,
+    db,
+  ) async {
+    await openScreenTime(tester);
+    await tester.tap(find.text('Grant Usage Access'));
+    await tester.pumpAndSettle();
+    expect(find.text('Allow usage access'), findsOneWidget);
+
+    // The person switches access on in settings and comes back.
+    testUsage.access = true;
+    testUsage.byDate['2026-05-13'] = const DayUsage(totalMinutes: 75);
+    _backgroundAndResume(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Allow usage access'), findsNothing);
+    expect(find.text('Total screen time'), findsOneWidget);
+    expect(find.text('1h 15m'), findsWidgets);
+    expect(find.text('Automatic tracking is unavailable'), findsNothing);
+  });
+
+  appTest('manual entry is the fallback and is stored as manual', (
+    tester,
+    db,
+  ) async {
+    await openScreenTime(tester);
+    await tester.tap(find.text('Enter screen time manually instead'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Automatic tracking is unavailable'), findsOneWidget);
+    await tester.tap(find.text('Add screen time manually'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Hours'), '2');
+    await tester.enterText(find.widgetWithText(TextField, 'Minutes'), '15');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final rows = await db.select(db.screenTimeDaily).get();
+    expect(rows.single.totalMinutes, 135);
+    expect(rows.single.source, ScreenTimeSource.manual);
+    expect(rows.single.localDate, '2026-05-13');
+    expect(find.text('2h 15m'), findsWidgets);
+    expect(
+      find.text('Entered manually, not read from the phone.'),
+      findsOneWidget,
+    );
+  });
+
+  appTest('manual entry rejects values that are not a time', (
+    tester,
+    db,
+  ) async {
+    await openScreenTime(tester);
+    await tester.tap(find.text('Enter screen time manually instead'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add screen time manually'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Minutes'), '75');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Enter whole hours'), findsOneWidget);
+    expect(await db.select(db.screenTimeDaily).get(), isEmpty);
+  });
+
+  appTest('access taken away shows the unavailable state, data stays', (
+    tester,
+    db,
+  ) async {
+    await openScreenTime(tester);
+    expect(find.text('Automatic tracking is unavailable'), findsNothing);
+
+    testUsage.access = false;
+    _backgroundAndResume(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Automatic tracking is unavailable'), findsOneWidget);
+    expect(find.text('Grant Usage Access'), findsOneWidget);
+    expect(find.text('Add screen time manually'), findsOneWidget);
+    expect(find.text('4h 12m'), findsWidgets); // stored totals remain
+  }, usage: withData());
+
+  appTest('automatic data is stored as automatic', (tester, db) async {
+    final rows = await db.select(db.screenTimeDaily).get();
+    expect(rows, isNotEmpty);
+    expect(rows.every((r) => r.source == ScreenTimeSource.automatic), isTrue);
+  }, usage: withData());
 
   appTest('with access Today shows the total and the screen shows detail', (
     tester,
@@ -63,22 +161,25 @@ void main() {
     expect(find.text('45 min'), findsOneWidget);
   }, usage: withData());
 
-  appTest('a daily goal can be set, shown and cleared', (tester, db) async {
+  appTest('a daily target can be set, shown and cleared', (tester, db) async {
     await openScreenTime(tester);
-    expect(find.text('Set a daily goal'), findsOneWidget);
+    expect(find.text('Set a daily target'), findsOneWidget);
 
-    await tester.tap(find.text('Set a daily goal'));
+    await tester.tap(find.text('Set a daily target'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('5 h'));
     await tester.pumpAndSettle();
-    expect(find.text('(Goal 5 h)'), findsOneWidget);
+    expect(find.text('(Target 5 h)'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    // The target is recorded with today's reading on the next sync.
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, 300));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Change goal'));
+    await tester.tap(find.text('Change target'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('No goal'));
+    await tester.tap(find.text('No target'));
     await tester.pumpAndSettle();
-    expect(find.text('(Goal 5 h)'), findsNothing);
+    expect(find.text('(Target 5 h)'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
   }, usage: withData());
 
@@ -121,7 +222,9 @@ void main() {
       'Allow usage access',
       'No screen time recorded yet today.',
       'No screen time recorded yet.',
-      'Set a daily goal',
+      'Set a daily target',
+      'Automatic tracking is unavailable',
+      'Enter screen time manually instead',
     ];
     expect(copy.any((c) => c.contains('!')), isFalse);
   });

@@ -69,3 +69,21 @@ Future<void> seedFullDay(AppDatabase db, {int day = 12}) async {
     totalMinutes: 60,
   );
 }
+
+/// Logs a night that ended at 07:00 UTC on `2026-05-[wakeDay]` and lasted
+/// [minutes].
+Future<void> seedSleep(
+  AppDatabase db, {
+  required int wakeDay,
+  required int minutes,
+}) async {
+  final clock = FixedClock(testNow);
+  final user = await UserRepository(db, clock).ensureUser();
+  final wake = DateTime.utc(2026, 5, wakeDay, 7);
+  await SleepRepository(db, clock).log(
+    userId: user.id,
+    dayCutoffMinutes: 0,
+    bedtimeAt: wake.subtract(Duration(minutes: minutes)),
+    wakeAt: wake,
+  );
+}

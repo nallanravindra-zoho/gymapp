@@ -28,6 +28,7 @@ ScreenTimeDailyData row(String date, int total, [String cats = '{}']) {
 }
 
 void main() {
+  _targetTests();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('DayUsage', () {
@@ -289,4 +290,34 @@ class _ThrowingSource extends FakeUsageSource {
   @override
   Future<DayUsage> readDay(DateTime start, DateTime end) =>
       throw PlatformException(code: 'usage_error');
+}
+
+void _targetTests() {
+  group('withinTarget', () {
+    test('at or under the limit counts, over does not', () {
+      expect(withinTarget(120, 120), isTrue);
+      expect(withinTarget(119, 120), isTrue);
+      expect(withinTarget(121, 120), isFalse);
+    });
+    test('no target means nothing to achieve', () {
+      expect(withinTarget(0, null), isFalse);
+    });
+  });
+
+  group('parseManualMinutes', () {
+    test('hours and minutes add up', () {
+      expect(parseManualMinutes('2', '15'), 135);
+      expect(parseManualMinutes('', '45'), 45);
+      expect(parseManualMinutes('3', ''), 180);
+    });
+    test('rejects bad input', () {
+      expect(parseManualMinutes('a', '0'), isNull);
+      expect(parseManualMinutes('1', '60'), isNull);
+      expect(parseManualMinutes('-1', '0'), isNull);
+      expect(parseManualMinutes('25', '0'), isNull);
+    });
+    test('a full day is the most', () {
+      expect(parseManualMinutes('24', '0'), 1440);
+    });
+  });
 }

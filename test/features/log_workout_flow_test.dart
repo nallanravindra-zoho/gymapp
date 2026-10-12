@@ -7,7 +7,8 @@ import '../test_helpers.dart';
 
 void main() {
   appTest('empty state offers the Workout quick-log tile', (tester, db) async {
-    expect(find.text('Quick log'), findsOneWidget);
+    expect(find.byKey(const ValueKey('quick-Workout')), findsOneWidget);
+    expect(find.text("Today's Summary"), findsOneWidget);
     expect(find.text('Workout'), findsWidgets);
     expect(find.text('Not logged yet'), findsWidgets);
     expect(find.text('Wed, 13 May'), findsOneWidget);

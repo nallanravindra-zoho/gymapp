@@ -331,8 +331,7 @@ class HabitCountsSection extends ConsumerWidget {
               colors: tokens.cat(habitCat(habits[i].kind)),
               title: habits[i].name,
               subtitle:
-                  '${counts[habits[i].id] ?? 0} of ${habits[i].dailyTarget}'
-                  '${isToday ? '' : ' that day'}',
+                  '${counts[habits[i].id] ?? 0}/${habits[i].dailyTarget}',
               done: (counts[habits[i].id] ?? 0) >= habits[i].dailyTarget,
               semanticLabel: isToday
                   ? 'Log ${habits[i].name}, ${counts[habits[i].id] ?? 0} of ${habits[i].dailyTarget} today'
