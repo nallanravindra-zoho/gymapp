@@ -41,11 +41,13 @@ FakeGroupsRemote withCrew() {
   }, DateTime.utc(2026, 5, 11, 7));
   // This week's scores (only used to rank; never shown).
   for (final (u, score) in [('asha', 8.0), ('ben', 6.0), (me, 5.0)]) {
-    s.seedScores(g.id, u, GroupCategory.workouts, score, metrics: {
-      'active_minutes': 120,
-      'active_days': 4,
-      'sessions': 4,
-    });
+    s.seedScores(
+      g.id,
+      u,
+      GroupCategory.workouts,
+      score,
+      metrics: {'active_minutes': 120, 'active_days': 4, 'sessions': 4},
+    );
   }
   return s;
 }
@@ -576,9 +578,7 @@ void main() {
         await showSwitch(tester, 'Workouts');
         await tester.tap(find.widgetWithText(SwitchListTile, 'Workouts'));
         await showSwitch(tester, 'Healthy Habits');
-        await tester.tap(
-          find.widgetWithText(SwitchListTile, 'Healthy Habits'),
-        );
+        await tester.tap(find.widgetWithText(SwitchListTile, 'Healthy Habits'));
         await tester.pumpAndSettle();
         expect(testGroups.sharing('g1', me)!.workouts, isTrue);
         expect(testGroups.sharing('g1', me)!.breaks, isFalse);

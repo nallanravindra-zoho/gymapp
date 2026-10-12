@@ -74,6 +74,7 @@ void main() {
     expect(find.text('Longest gap: 3 days (Thu to Sat).'), findsOneWidget);
 
     // Tips: at most three, each tied to an insight, with the footer once.
+    await tester.scrollUntilVisible(find.text("This week's tips"), 200);
     expect(find.text("This week's tips"), findsOneWidget);
     await tester.scrollUntilVisible(find.text(tipFooter), 200);
     expect(find.text(tipFooter), findsOneWidget);

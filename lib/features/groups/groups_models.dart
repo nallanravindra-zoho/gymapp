@@ -149,6 +149,13 @@ class GroupSharing {
 
 /// The areas a group compares people on (R9). `habits` is the Healthy Habits
 /// category; the database still calls its switch `share_breaks`.
+///
+/// Scoring happens only on the server (one daily 0 to 10 score per category,
+/// capped, averaged over days with data; overall is the mean over the
+/// categories a person shares and is never sent to the app). The rules are in
+/// docs/group-scoring.md and in the group_daily_scores function of
+/// supabase/migrations/20261013000000_group_categories.sql. The app only
+/// receives ranks and key figures, so there is no score type here on purpose.
 enum GroupCategory {
   workouts('workouts', 'Workouts'),
   habits('habits', 'Healthy Habits'),

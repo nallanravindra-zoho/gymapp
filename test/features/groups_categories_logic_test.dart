@@ -34,13 +34,16 @@ void main() {
       expect(GroupTab.fromWire('overall'), GroupTab.overall);
       expect(GroupTab.fromWire('habits'), GroupTab.habits);
       expect(GroupTab.fromWire('nonsense'), isNull);
-      expect([for (final t in GroupTab.values) t.label], [
-        'Overall',
-        'Workouts',
-        'Healthy Habits',
-        'Sleep Health',
-        'Screen Time',
-      ]);
+      expect(
+        [for (final t in GroupTab.values) t.label],
+        [
+          'Overall',
+          'Workouts',
+          'Healthy Habits',
+          'Sleep Health',
+          'Screen Time',
+        ],
+      );
       for (final label in [
         for (final c in GroupCategory.values) c.label,
         for (final t in GroupTab.values) t.label,
@@ -222,11 +225,10 @@ void main() {
       score(s, 'cy', GroupCategory.sleep, 2);
       score(s, 'me', GroupCategory.workouts, 6);
       final board = await s.overallBoard('g', week);
-      expect([for (final e in board) '${e.rank}:${e.userId}'], [
-        '1:ben',
-        '2:me',
-        '3:cy',
-      ]);
+      expect(
+        [for (final e in board) '${e.rank}:${e.userId}'],
+        ['1:ben', '2:me', '3:cy'],
+      );
       expect(board.last.categories, [
         GroupCategory.workouts,
         GroupCategory.sleep,
@@ -241,9 +243,10 @@ void main() {
       score(s, 'cy', GroupCategory.sleep, 5);
       score(s, 'cy', GroupCategory.screenTime, 5);
       score(s, 'ben', GroupCategory.workouts, 4);
-      final cy = (await s.overallBoard('g', week)).firstWhere(
-        (e) => e.userId == 'cy',
-      );
+      final cy = (await s.overallBoard(
+        'g',
+        week,
+      )).firstWhere((e) => e.userId == 'cy');
       // I share workouts and habits only, so Cy's sleep and screen time do
       // not show.
       expect(cy.categories, [GroupCategory.workouts]);
@@ -283,8 +286,12 @@ void main() {
       );
       // Ben shares workouts and so do I.
       expect(
-        (await s.memberMetrics('g', 'ben', week, GroupCategory.workouts))!
-            .summary['sessions'],
+        (await s.memberMetrics(
+          'g',
+          'ben',
+          week,
+          GroupCategory.workouts,
+        ))!.summary['sessions'],
         2,
       );
       // Ben does not share sleep even if he had data.

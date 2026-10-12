@@ -41,7 +41,10 @@ FakeGroupsRemote crew({bool meSleep = false}) {
     GroupCategory.sleep,
     9,
     metrics: sleep,
-    daily: [(date: '2026-05-11', amount: 470), (date: '2026-05-12', amount: 430)],
+    daily: [
+      (date: '2026-05-11', amount: 470),
+      (date: '2026-05-12', amount: 430),
+    ],
   );
   s.seedScores(g.id, 'ben', GroupCategory.sleep, 4, metrics: sleep);
   s.seedScores(
@@ -91,6 +94,19 @@ List<String> everyText(WidgetTester tester) => [
       (e.widget as Semantics).properties.label!,
 ];
 
+final vertical = find
+    .byWidgetPredicate((w) => w is Scrollable && w.axis == Axis.vertical)
+    .first;
+
+/// Scrolls to a widget and taps it.
+Future<void> scrollTap(WidgetTester tester, Finder f) async {
+  await tester.scrollUntilVisible(f, 200, scrollable: vertical);
+  await tester.ensureVisible(f);
+  await tester.pumpAndSettle();
+  await tester.tap(f);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('tabs', () {
     appTest(
@@ -113,17 +129,10 @@ void main() {
         expect(tabLabels(tester), isNot(contains('Sleep Health')));
         await tester.tap(find.byTooltip('Group settings'));
         await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
+        await scrollTap(
+          tester,
           find.widgetWithText(SwitchListTile, 'Sleep Health'),
-          200,
-          scrollable: find
-              .byWidgetPredicate(
-                (w) => w is Scrollable && w.axis == Axis.vertical,
-              )
-              .first,
         );
-        await tester.tap(find.widgetWithText(SwitchListTile, 'Sleep Health'));
-        await tester.pumpAndSettle();
         expect(testGroups.sharing('g1', me)!.sleep, isTrue);
         await tester.pageBack();
         await tester.pumpAndSettle();
@@ -150,14 +159,29 @@ void main() {
       'the category tabs say what the ranking is based on',
       (tester, db) async {
         await openGroup(tester);
-        expect(find.text('Ranked on the categories each person shares.'),
-            findsOneWidget);
+        expect(
+          find.text('Ranked on the categories each person shares.'),
+          findsOneWidget,
+        );
         await tapTab(tester, 'Healthy Habits');
         expect(find.textContaining('own targets'), findsOneWidget);
         // Ben 8, Asha 6; Divya has no habit data and is not listed.
-        expect(find.text('Ben'), findsOneWidget);
-        expect(find.text('Owner of Sunday crew'), findsOneWidget);
-        expect(find.text('You'), findsNothing);
+        final board = find.byType(CategoryBoardCard);
+        expect(
+          find.descendant(of: board, matching: find.text('Ben')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: board,
+            matching: find.text('Owner of Sunday crew'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: board, matching: find.text('You')),
+          findsNothing,
+        );
       },
       auth: signedInAuth(),
       groups: crew(),
@@ -166,20 +190,23 @@ void main() {
     appTest(
       'Workouts keeps the volume and consistency totals',
       (tester, db) async {
-        testGroups.setTotals('g1', 'asha', 120, 4);
-        testGroups.setTotals('g1', 'ben', 45, 5);
-        testGroups.setTotals('g1', me, 45, 2);
         await openGroup(tester);
         await tapTab(tester, 'Workouts');
         expect(find.text('Weekly totals'), findsOneWidget);
         expect(find.text('Volume'), findsOneWidget);
-        await tester.ensureVisible(find.text('Consistency'));
-        await tester.tap(find.text('Consistency'));
-        await tester.pumpAndSettle();
+        await scrollTap(tester, find.text('Consistency'));
+        await tester.dragUntilVisible(
+          find.text('5 days'),
+          find.byType(RefreshIndicator),
+          const Offset(0, -200),
+        );
         expect(find.text('5 days'), findsOneWidget);
       },
       auth: signedInAuth(),
-      groups: crew(),
+      groups: crew()
+        ..setTotals('g1', 'asha', 120, 4)
+        ..setTotals('g1', 'ben', 45, 5)
+        ..setTotals('g1', me, 45, 2),
     );
   });
 
@@ -188,7 +215,8 @@ void main() {
       'shows rank and contribution chips, and never a number',
       (tester, db) async {
         await openGroup(tester);
-        // Means: Ben (7 + 8) / 2 = 7.5, Asha (9 + 6) / 2 = 7.5 tie, Divya 5.
+        // Asha shares four categories, Ben three, Divya one (workouts): they
+        // are compared on what each shares. Ranks are 1, 2, 3.
         final board = find.byType(OverallBoardCard);
         expect(board, findsOneWidget);
         expect(
@@ -202,21 +230,25 @@ void main() {
         );
         // Ranks: 1, 1 and 3.
         final labels = [
-          for (final e in find
-              .descendant(of: board, matching: find.byType(Semantics))
-              .evaluate())
+          for (final e
+              in find
+                  .descendant(of: board, matching: find.byType(Semantics))
+                  .evaluate())
             if ((e.widget as Semantics).properties.label != null)
               (e.widget as Semantics).properties.label!,
         ];
-        expect(labels.where((l) => l.startsWith('1, ')).length, 2);
+        expect(labels.where((l) => l.startsWith('1, ')).length, 1);
+        expect(labels.where((l) => l.startsWith('2, ')).length, 1);
         expect(labels.where((l) => l.startsWith('3, ')).length, 1);
         expect(labels.join(' '), contains('based on Workouts, Healthy Habits'));
 
         // No overall (or any) score: the only digits on this screen are the
         // week's dates, member count style words and the ranks.
         final numbers = everyText(tester).where(
-          (t) => RegExp(r'\d+\.\d|/ ?10|out of 10|score', caseSensitive: false)
-              .hasMatch(t),
+          (t) => RegExp(
+            r'\d+\.\d|/ ?10|out of 10|score',
+            caseSensitive: false,
+          ).hasMatch(t),
         );
         expect(numbers, isEmpty, reason: 'no score is shown or announced');
       },
@@ -288,11 +320,7 @@ void main() {
         await tester.scrollUntilVisible(
           find.text('Members'),
           300,
-          scrollable: find
-              .byWidgetPredicate(
-                (w) => w is Scrollable && w.axis == Axis.vertical,
-              )
-              .first,
+          scrollable: vertical,
         );
         // Ben, the member row (the board rows are above).
         await tester.tap(find.text('Ben').last);
@@ -313,19 +341,25 @@ void main() {
         await tester.scrollUntilVisible(
           find.text('Members'),
           300,
-          scrollable: find
-              .byWidgetPredicate(
-                (w) => w is Scrollable && w.axis == Axis.vertical,
-              )
-              .first,
+          scrollable: vertical,
         );
-        await tester.tap(find.text('Owner of Sunday crew').last);
+        await tester.tap(find.text('Ben').last);
         await tester.pumpAndSettle();
-        // Asha shares workouts and habits with Divya; make her stop.
-        expect(find.textContaining('Active time'), findsOneWidget);
+        expect(
+          find.textContaining('Nothing from Ben is shared with you'),
+          findsOneWidget,
+        );
+        expect(find.text('Active time'), findsNothing);
       },
       auth: signedInAuth(),
-      groups: crew(),
+      groups: crew()
+        ..setMemberSharing(
+          'g1',
+          'ben',
+          workouts: false,
+          habits: false,
+          sleep: false,
+        ),
     );
   });
 
@@ -352,9 +386,7 @@ void main() {
         expect(find.textContaining('never shared'), findsOneWidget);
         expect(find.textContaining('start off'), findsOneWidget);
         bool on(String title) => tester
-            .widget<SwitchListTile>(
-              find.widgetWithText(SwitchListTile, title),
-            )
+            .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, title))
             .value;
         expect(on('Workouts'), isTrue);
         expect(on('Healthy Habits'), isTrue);
@@ -371,7 +403,8 @@ void main() {
         expect(sharing.sleep, isTrue);
         expect(sharing.workouts, isFalse);
         expect(sharing.screenTime, isFalse);
-        final mine = testGroups.sharing('g-1', me) ?? testGroups.sharing('g-2', me);
+        final mine =
+            testGroups.sharing('g-1', me) ?? testGroups.sharing('g-2', me);
         expect(mine, isNotNull);
         expect(mine!.sleep, isTrue);
       },
@@ -403,9 +436,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Join Walkers?'), findsOneWidget);
         expect(find.textContaining('choose to share'), findsOneWidget);
-        await tester.tap(
-          find.widgetWithText(SwitchListTile, 'Screen Time'),
-        );
+        await tester.tap(find.widgetWithText(SwitchListTile, 'Screen Time'));
         await tester.pumpAndSettle();
         await tester.tap(inSheet(find.text('Join')));
         await tester.pumpAndSettle();
@@ -432,7 +463,9 @@ void main() {
         await tester.tap(find.byTooltip('Group settings'));
         await tester.pumpAndSettle();
         final scroll = find
-            .byWidgetPredicate((w) => w is Scrollable && w.axis == Axis.vertical)
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axis == Axis.vertical,
+            )
             .first;
         for (final title in [
           'Workouts',
@@ -448,12 +481,16 @@ void main() {
         }
         expect(find.textContaining('Break'), findsNothing);
         expect(find.textContaining('break'), findsNothing);
-        await tester.tap(find.widgetWithText(SwitchListTile, 'Screen Time'));
-        await tester.pumpAndSettle();
+        await scrollTap(
+          tester,
+          find.widgetWithText(SwitchListTile, 'Screen Time'),
+        );
         expect(testGroups.sharing('g1', me)!.screenTime, isTrue);
         expect(testGroups.sharing('g1', me)!.sleep, isFalse);
-        expect(find.textContaining('No overall number is shown'),
-            findsOneWidget);
+        expect(
+          find.textContaining('No overall number is shown'),
+          findsOneWidget,
+        );
       },
       auth: signedInAuth(),
       groups: crew(),
