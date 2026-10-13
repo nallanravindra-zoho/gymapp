@@ -156,7 +156,7 @@ void main() {
       );
       expect(
         describeEvent(ev(GroupEventKind.breakGoal, {}), 'Ben'),
-        'Ben met a break goal.',
+        'Ben met a Healthy Habits goal.',
       );
       expect(
         describeEvent(ev(GroupEventKind.milestone, {}), 'Ben'),
@@ -164,7 +164,7 @@ void main() {
       );
     });
 
-    test('break goals and milestones', () {
+    test('Healthy Habits goals and milestones', () {
       expect(
         describeEvent(
           ev(GroupEventKind.breakGoal, {'habit_name': 'Water'}),

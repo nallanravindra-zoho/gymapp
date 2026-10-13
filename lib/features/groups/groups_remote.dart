@@ -8,11 +8,13 @@ abstract class GroupsRemote {
   bool get isAvailable;
 
   Future<List<Group>> listGroups();
-  Future<Group> createGroup(String name);
+  Future<Group> createGroup(String name, {GroupSharing? sharing});
   Future<InvitePreview> previewInvite(String code);
 
-  /// Joins and returns the group id. Joining twice is harmless.
-  Future<String> joinGroup(String code);
+  /// Joins and returns the group id. Joining twice is harmless. [sharing] is
+  /// what the person chose in the onboarding sheet; it is applied as the
+  /// membership is created, so nothing is shared against their choice.
+  Future<String> joinGroup(String code, {GroupSharing? sharing});
 
   Future<List<GroupMember>> roster(String groupId);
   Future<List<GroupEvent>> feed(String groupId, {int limit = 30});
@@ -22,7 +24,40 @@ abstract class GroupsRemote {
   Future<List<LeaderboardEntry>> leaderboard(String groupId, String weekStart);
 
   Future<void> setCheer(String eventId, {required bool cheered});
-  Future<void> setSharing(String groupId, {bool? workouts, bool? breaks});
+
+  /// Changes this member's switches for the group. [breaks] is Healthy Habits.
+  Future<void> setSharing(
+    String groupId, {
+    bool? workouts,
+    bool? breaks,
+    bool? sleep,
+    bool? screenTime,
+    bool? hobbies,
+  });
+
+  /// The tabs this member can see for the week: Overall and the categories
+  /// that at least 2 members share with data, which this member shares too.
+  Future<Set<GroupTab>> availableTabs(String groupId, String weekStart);
+
+  /// Overall ranks: a rank and the categories behind it, never a score.
+  Future<List<OverallEntry>> overallBoard(String groupId, String weekStart);
+
+  /// A category's ranking with each person's key figures.
+  Future<List<CategoryEntry>> categoryBoard(
+    String groupId,
+    String weekStart,
+    GroupCategory category,
+  );
+
+  /// One participant's shared key metrics, or null when they (or you) do not
+  /// share the category.
+  Future<ParticipantMetrics?> memberMetrics(
+    String groupId,
+    String userId,
+    String weekStart,
+    GroupCategory category,
+  );
+
   Future<void> rename(String groupId, String name);
 
   /// Replaces the invite code; the old link stops working. Returns the new one.
@@ -40,11 +75,12 @@ class UnavailableGroupsRemote implements GroupsRemote {
   @override
   Future<List<Group>> listGroups() async => _no();
   @override
-  Future<Group> createGroup(String name) async => _no();
+  Future<Group> createGroup(String name, {GroupSharing? sharing}) async =>
+      _no();
   @override
   Future<InvitePreview> previewInvite(String code) async => _no();
   @override
-  Future<String> joinGroup(String code) async => _no();
+  Future<String> joinGroup(String code, {GroupSharing? sharing}) async => _no();
   @override
   Future<List<GroupMember>> roster(String groupId) async => _no();
   @override
@@ -62,7 +98,31 @@ class UnavailableGroupsRemote implements GroupsRemote {
     String groupId, {
     bool? workouts,
     bool? breaks,
+    bool? sleep,
+    bool? screenTime,
+    bool? hobbies,
   }) async => _no();
+  @override
+  Future<Set<GroupTab>> availableTabs(String groupId, String weekStart) async =>
+      _no();
+  @override
+  Future<List<OverallEntry>> overallBoard(
+    String groupId,
+    String weekStart,
+  ) async => _no();
+  @override
+  Future<List<CategoryEntry>> categoryBoard(
+    String groupId,
+    String weekStart,
+    GroupCategory category,
+  ) async => _no();
+  @override
+  Future<ParticipantMetrics?> memberMetrics(
+    String groupId,
+    String userId,
+    String weekStart,
+    GroupCategory category,
+  ) async => _no();
   @override
   Future<void> rename(String groupId, String name) async => _no();
   @override
@@ -91,6 +151,23 @@ class FakeGroupsRemote implements GroupsRemote {
   final _events = <String, List<_Event>>{}; // by group id
   final _totals =
       <String, Map<String, (int, int)>>{}; // group -> user -> (min, days)
+  // group -> user -> category -> that week's data
+  final _scores =
+      <
+        String,
+        Map<
+          String,
+          Map<
+            GroupCategory,
+            ({
+              double score,
+              int days,
+              Map<String, Object?> metrics,
+              List<({String date, num amount})> daily,
+            })
+          >
+        >
+      >{};
   var _next = 0;
 
   /// Makes the next call fail with this, once.
@@ -164,6 +241,8 @@ class FakeGroupsRemote implements GroupsRemote {
     bool owner = false,
     bool shareWorkouts = true,
     bool shareBreaks = true,
+    bool shareSleep = false,
+    bool shareScreenTime = false,
   }) {
     _members[groupId]!.add(
       _Member(
@@ -173,7 +252,45 @@ class FakeGroupsRemote implements GroupsRemote {
         DateTime.utc(2026, 1, 2).add(Duration(days: _members[groupId]!.length)),
         shareWorkouts: shareWorkouts,
         shareBreaks: shareBreaks,
+        shareSleep: shareSleep,
+        shareScreenTime: shareScreenTime,
       ),
+    );
+  }
+
+  /// Sets another member's switches (test set-up).
+  void setMemberSharing(
+    String groupId,
+    String userId, {
+    bool? workouts,
+    bool? habits,
+    bool? sleep,
+    bool? screenTime,
+  }) {
+    final m = _memberRow(groupId, userId)!;
+    if (workouts != null) m.shareWorkouts = workouts;
+    if (habits != null) m.shareBreaks = habits;
+    if (sleep != null) m.shareSleep = sleep;
+    if (screenTime != null) m.shareScreenTime = screenTime;
+  }
+
+  /// Gives a member weekly data in a category: [score] (0 to 10) is what the
+  /// real server would compute and is used only to rank, never shown;
+  /// [metrics] are the key figures; [daily] one figure per day.
+  void seedScores(
+    String groupId,
+    String userId,
+    GroupCategory category,
+    double score, {
+    int days = 1,
+    Map<String, Object?> metrics = const {},
+    List<({String date, num amount})> daily = const [],
+  }) {
+    ((_scores[groupId] ??= {})[userId] ??= {})[category] = (
+      score: score,
+      days: days,
+      metrics: metrics,
+      daily: daily,
     );
   }
 
@@ -204,11 +321,18 @@ class FakeGroupsRemote implements GroupsRemote {
   }
 
   /// What a member currently shares, for assertions.
-  ({bool workouts, bool breaks})? sharing(String groupId, String userId) {
+  ({bool workouts, bool breaks, bool sleep, bool screenTime, bool hobbies})?
+  sharing(String groupId, String userId) {
     final m = _memberRow(groupId, userId);
     return m == null
         ? null
-        : (workouts: m.shareWorkouts, breaks: m.shareBreaks);
+        : (
+            workouts: m.shareWorkouts,
+            breaks: m.shareBreaks,
+            sleep: m.shareSleep,
+            screenTime: m.shareScreenTime,
+            hobbies: m.shareHobbies,
+          );
   }
 
   // GroupsRemote -------------------------------------------------------------
@@ -226,8 +350,9 @@ class FakeGroupsRemote implements GroupsRemote {
   }
 
   @override
-  Future<Group> createGroup(String name) async {
+  Future<Group> createGroup(String name, {GroupSharing? sharing}) async {
     _check('createGroup');
+    lastSharing = sharing;
     final n = name.trim();
     if (n.isEmpty || n.length > 40) {
       throw const GroupsException(GroupsProblem.invalidName);
@@ -236,7 +361,21 @@ class FakeGroupsRemote implements GroupsRemote {
       throw const GroupsException(GroupsProblem.tooManyGroups);
     }
     final g = seedGroup(n, owner: me);
+    _applySharing(g.id, sharing);
     return g.copyWith(memberCount: 1);
+  }
+
+  /// The choices passed with the last create or join, for assertions.
+  GroupSharing? lastSharing;
+
+  void _applySharing(String groupId, GroupSharing? s) {
+    final m = _memberRow(groupId, me);
+    if (m == null || s == null) return;
+    m.shareWorkouts = s.workouts;
+    m.shareBreaks = s.habits;
+    m.shareSleep = s.sleep;
+    m.shareScreenTime = s.screenTime;
+    m.shareHobbies = s.hobbies;
   }
 
   Group? _byCode(String code) {
@@ -263,8 +402,9 @@ class FakeGroupsRemote implements GroupsRemote {
   }
 
   @override
-  Future<String> joinGroup(String code) async {
+  Future<String> joinGroup(String code, {GroupSharing? sharing}) async {
     _check('joinGroup');
+    lastSharing = sharing;
     _checkGuessing();
     final g = _byCode(code);
     if (g == null) {
@@ -276,6 +416,7 @@ class FakeGroupsRemote implements GroupsRemote {
       throw const GroupsException(GroupsProblem.groupFull);
     }
     _members[g.id]!.add(_Member(me, myName, false, DateTime.utc(2026, 5, 13)));
+    _applySharing(g.id, sharing);
     return g.id;
   }
 
@@ -341,12 +482,147 @@ class FakeGroupsRemote implements GroupsRemote {
     String groupId, {
     bool? workouts,
     bool? breaks,
+    bool? sleep,
+    bool? screenTime,
+    bool? hobbies,
   }) async {
     _check('setSharing');
     final m = _memberRow(groupId, me);
     if (m == null) return;
     if (workouts != null) m.shareWorkouts = workouts;
     if (breaks != null) m.shareBreaks = breaks;
+    if (sleep != null) m.shareSleep = sleep;
+    if (screenTime != null) m.shareScreenTime = screenTime;
+    if (hobbies != null) m.shareHobbies = hobbies;
+  }
+
+  // Scoring views. They follow the same rules as the server functions in
+  // supabase/migrations/20261013000000_group_categories.sql: a category is
+  // read only for members who share it and only shown to a viewer who shares
+  // it; a tab needs at least 2 sharing members with data.
+
+  /// Members who share [c] and have data this week.
+  List<_Member> _sharersWithData(String groupId, GroupCategory c) => [
+    for (final m in _members[groupId] ?? const <_Member>[])
+      if (m.shares(c) && _scores[groupId]?[m.userId]?[c] != null) m,
+  ];
+
+  /// userId -> (overall mean, categories behind it) for members with at
+  /// least one shared category with data.
+  Map<String, ({double mean, List<GroupCategory> cats})> _overall(
+    String groupId,
+  ) {
+    final out = <String, ({double mean, List<GroupCategory> cats})>{};
+    for (final m in _members[groupId] ?? const <_Member>[]) {
+      final cats = [
+        for (final c in GroupCategory.values)
+          if (m.shares(c) && _scores[groupId]?[m.userId]?[c] != null) c,
+      ];
+      if (cats.isEmpty) continue;
+      final sum = cats.fold<double>(
+        0,
+        (a, c) => a + _scores[groupId]![m.userId]![c]!.score,
+      );
+      out[m.userId] = (mean: sum / cats.length, cats: cats);
+    }
+    return out;
+  }
+
+  @override
+  Future<Set<GroupTab>> availableTabs(String groupId, String weekStart) async {
+    _check('availableTabs');
+    final mine = _memberRow(groupId, me);
+    if (mine == null) return {};
+    final tabs = <GroupTab>{};
+    for (final c in GroupCategory.values) {
+      if (mine.shares(c) && _sharersWithData(groupId, c).length >= 2) {
+        tabs.add(GroupTab.fromWire(c.wire)!);
+      }
+    }
+    final sharesAny = GroupCategory.values.any(mine.shares);
+    if (sharesAny && _overall(groupId).length >= 2) tabs.add(GroupTab.overall);
+    return tabs;
+  }
+
+  @override
+  Future<List<OverallEntry>> overallBoard(
+    String groupId,
+    String weekStart,
+  ) async {
+    _check('overallBoard');
+    if (!(await availableTabs(groupId, weekStart)).contains(GroupTab.overall)) {
+      return [];
+    }
+    final mine = _memberRow(groupId, me)!;
+    final rows = _overall(groupId).entries.toList()
+      ..sort((a, b) {
+        final byScore = b.value.mean.compareTo(a.value.mean);
+        return byScore != 0
+            ? byScore
+            : _memberRow(groupId, a.key)!.name.toLowerCase().compareTo(
+                _memberRow(groupId, b.key)!.name.toLowerCase(),
+              );
+      });
+    final ranks = competitionRanks([for (final r in rows) r.value.mean]);
+    return [
+      for (var i = 0; i < rows.length; i++)
+        OverallEntry(
+          userId: rows[i].key,
+          displayName: _memberRow(groupId, rows[i].key)!.name,
+          rank: ranks[i],
+          categories: [
+            for (final c in rows[i].value.cats)
+              if (mine.shares(c)) c,
+          ],
+        ),
+    ];
+  }
+
+  @override
+  Future<List<CategoryEntry>> categoryBoard(
+    String groupId,
+    String weekStart,
+    GroupCategory category,
+  ) async {
+    _check('categoryBoard');
+    final tabs = await availableTabs(groupId, weekStart);
+    if (!tabs.contains(GroupTab.fromWire(category.wire))) return [];
+    final rows = _sharersWithData(groupId, category)
+      ..sort((a, b) {
+        final x = _scores[groupId]![a.userId]![category]!;
+        final y = _scores[groupId]![b.userId]![category]!;
+        final byScore = y.score.compareTo(x.score);
+        return byScore != 0 ? byScore : y.days.compareTo(x.days);
+      });
+    final ranks = competitionRanks([
+      for (final m in rows) _scores[groupId]![m.userId]![category]!.score,
+    ]);
+    return [
+      for (var i = 0; i < rows.length; i++)
+        CategoryEntry(
+          userId: rows[i].userId,
+          displayName: rows[i].name,
+          rank: ranks[i],
+          metrics: _scores[groupId]![rows[i].userId]![category]!.metrics,
+        ),
+    ];
+  }
+
+  @override
+  Future<ParticipantMetrics?> memberMetrics(
+    String groupId,
+    String userId,
+    String weekStart,
+    GroupCategory category,
+  ) async {
+    _check('memberMetrics');
+    final mine = _memberRow(groupId, me);
+    final theirs = _memberRow(groupId, userId);
+    if (mine == null || theirs == null || !theirs.shares(category)) return null;
+    if (userId != me && !mine.shares(category)) return null;
+    final data = _scores[groupId]?[userId]?[category];
+    if (data == null) return null;
+    return ParticipantMetrics(summary: data.metrics, days: data.daily);
   }
 
   @override
@@ -398,6 +674,8 @@ class _Member {
     this.joinedAt, {
     this.shareWorkouts = true,
     this.shareBreaks = true,
+    this.shareSleep = false,
+    this.shareScreenTime = false,
   });
   final String userId;
   final String name;
@@ -405,6 +683,16 @@ class _Member {
   final DateTime joinedAt;
   bool shareWorkouts;
   bool shareBreaks;
+  bool shareSleep;
+  bool shareScreenTime;
+  bool shareHobbies = false;
+
+  bool shares(GroupCategory c) => switch (c) {
+    GroupCategory.workouts => shareWorkouts,
+    GroupCategory.habits => shareBreaks,
+    GroupCategory.sleep => shareSleep,
+    GroupCategory.screenTime => shareScreenTime,
+  };
 
   GroupMember toModel() => GroupMember(
     userId: userId,
@@ -413,6 +701,9 @@ class _Member {
     joinedAt: joinedAt,
     shareWorkouts: shareWorkouts,
     shareBreaks: shareBreaks,
+    shareSleep: shareSleep,
+    shareScreenTime: shareScreenTime,
+    shareHobbies: shareHobbies,
   );
 }
 

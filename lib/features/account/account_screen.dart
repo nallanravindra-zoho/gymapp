@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../streaks/streak_providers.dart';
+import '../metrics/metrics_screen.dart';
 import '../settings/settings_screen.dart';
 import 'auth_service.dart';
 import 'sync_providers.dart';
@@ -233,42 +236,53 @@ class _ConflictCard extends StatelessWidget {
   }
 }
 
-/// Profile & Settings: who you are, and where each group of settings lives.
-class AccountScreen extends ConsumerWidget {
-  const AccountScreen({super.key});
+/// One tappable row of a settings list.
+class _HubRow extends StatelessWidget {
+  const _HubRow({
+    required this.icon,
+    required this.title,
+    required this.screen,
+    this.subtitle,
+    this.last = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget Function() screen;
+  final bool last;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = context.tokens;
     final text = Theme.of(context).textTheme;
-    final local = ref.watch(userStreamProvider).value?.displayName.trim() ?? '';
-    final account = ref.watch(authUserProvider).value;
-    final name = local.isNotEmpty
-        ? local
-        : (account?.displayName ?? account?.email ?? 'You');
-
-    void open(Widget screen) =>
-        Navigator.of(context)
-            .push(MaterialPageRoute<void>(builder: (_) => screen));
-
-    Widget row(
-      IconData icon,
-      String title,
-      Widget Function() screen, {
-      bool last = false,
-    }) => Column(
+    return Column(
       children: [
         InkWell(
-          onTap: () => open(screen()),
+          onTap: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute<void>(builder: (_) => screen())),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 66),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Row(
                 children: [
                   Icon(icon, size: 26, color: t.text.withValues(alpha: 0.8)),
                   const SizedBox(width: 18),
-                  Expanded(child: Text(title, style: text.bodyLarge)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: text.bodyLarge),
+                        if (subtitle != null)
+                          Text(
+                            subtitle!,
+                            style: text.bodySmall?.copyWith(color: t.textMuted),
+                          ),
+                      ],
+                    ),
+                  ),
                   Icon(Icons.chevron_right_rounded, color: t.textMuted),
                 ],
               ),
@@ -278,6 +292,125 @@ class AccountScreen extends ConsumerWidget {
         if (!last) const RowDivider(indent: 62),
       ],
     );
+  }
+}
+
+Widget _listScreen(
+  BuildContext context,
+  String title,
+  List<Widget> rows, {
+  String? note,
+}) {
+  return Scaffold(
+    appBar: AppBar(title: Text(title)),
+    body: ListView(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        MediaQuery.paddingOf(context).bottom + 24,
+      ),
+      children: [
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12, left: 4),
+            child: Text(
+              note,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: context.tokens.textMuted),
+            ),
+          ),
+        SoftCard(
+          padding: EdgeInsets.zero,
+          radius: 22,
+          child: Column(children: rows),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Profile Management: who you are and your body metrics.
+class ProfileManagementScreen extends StatelessWidget {
+  const ProfileManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      _listScreen(context, 'Profile Management', [
+        _HubRow(
+          icon: Icons.person_outline_rounded,
+          title: SettingsSection.profile.title,
+          subtitle: 'Name, date of birth, picture',
+          screen: () => const SettingsScreen(section: SettingsSection.profile),
+        ),
+        _HubRow(
+          icon: Icons.height_rounded,
+          title: SettingsSection.metrics.title,
+          subtitle: 'Height and weight',
+          screen: () => const SettingsScreen(section: SettingsSection.metrics),
+        ),
+        _HubRow(
+          icon: Icons.straighten_rounded,
+          title: 'Body measurements',
+          subtitle: 'Records, reminders and guidance',
+          screen: () => const MetricsScreen(),
+          last: true,
+        ),
+      ], note: 'Private to you. Nothing here is shared with groups.');
+}
+
+/// App Management: how the app looks, sounds and keeps your data.
+class AppManagementScreen extends StatelessWidget {
+  const AppManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => _listScreen(context, 'App Management', [
+    _HubRow(
+      icon: Icons.palette_outlined,
+      title: SettingsSection.appearance.title,
+      subtitle: 'Light, dark or system',
+      screen: () => const SettingsScreen(section: SettingsSection.appearance),
+    ),
+    _HubRow(
+      icon: Icons.notifications_none_rounded,
+      title: SettingsSection.reminders.title,
+      subtitle: 'Sound, quiet hours, daily limit',
+      screen: () => const SettingsScreen(section: SettingsSection.reminders),
+    ),
+    _HubRow(
+      icon: Icons.tune_rounded,
+      title: SettingsSection.preferences.title,
+      screen: () => const SettingsScreen(section: SettingsSection.preferences),
+    ),
+    _HubRow(
+      icon: Icons.lock_outline_rounded,
+      title: SettingsSection.data.title,
+      screen: () => const SettingsScreen(section: SettingsSection.data),
+    ),
+    _HubRow(
+      icon: Icons.cloud_sync_outlined,
+      title: 'Account & sync',
+      screen: () => const SyncAccountScreen(),
+      last: true,
+    ),
+  ]);
+}
+
+/// Profile & Settings: who you are, and two places for everything else.
+class AccountScreen extends ConsumerWidget {
+  const AccountScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    final u = ref.watch(userStreamProvider).value;
+    final local = u?.displayName.trim() ?? '';
+    final account = ref.watch(authUserProvider).value;
+    final name = local.isNotEmpty
+        ? local
+        : (account?.displayName ?? account?.email ?? 'You');
+    final photo = u?.avatarUrl;
 
     return Scaffold(
       appBar: AppBar(
@@ -302,6 +435,7 @@ class AccountScreen extends ConsumerWidget {
                 width: 76,
                 height: 76,
                 alignment: Alignment.center,
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: t.cat(Cat.leaf).tint,
@@ -314,12 +448,15 @@ class AccountScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                child: Text(
-                  name.characters.first.toUpperCase(),
-                  style: text.headlineMedium?.copyWith(
-                    color: t.cat(Cat.leaf).icon,
-                  ),
-                ),
+                child: photo != null && photo.isNotEmpty
+                    ? Image.file(
+                        File(photo),
+                        width: 76,
+                        height: 76,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _initial(text, t, name),
+                      )
+                    : _initial(text, t, name),
               ),
               const SizedBox(width: 18),
               Expanded(
@@ -343,34 +480,17 @@ class AccountScreen extends ConsumerWidget {
             radius: 22,
             child: Column(
               children: [
-                row(
-                  Icons.person_outline_rounded,
-                  SettingsSection.profile.title,
-                  () => const SettingsScreen(section: SettingsSection.profile),
+                _HubRow(
+                  icon: Icons.person_outline_rounded,
+                  title: 'Profile Management',
+                  subtitle: 'You, your metrics and measurements',
+                  screen: () => const ProfileManagementScreen(),
                 ),
-                row(
-                  Icons.tune_rounded,
-                  SettingsSection.preferences.title,
-                  () => const SettingsScreen(
-                    section: SettingsSection.preferences,
-                  ),
-                ),
-                row(
-                  Icons.notifications_none_rounded,
-                  SettingsSection.notifications.title,
-                  () => const SettingsScreen(
-                    section: SettingsSection.notifications,
-                  ),
-                ),
-                row(
-                  Icons.lock_outline_rounded,
-                  SettingsSection.data.title,
-                  () => const SettingsScreen(section: SettingsSection.data),
-                ),
-                row(
-                  Icons.cloud_sync_outlined,
-                  'Account & sync',
-                  () => const SyncAccountScreen(),
+                _HubRow(
+                  icon: Icons.settings_outlined,
+                  title: 'App Management',
+                  subtitle: 'Appearance, reminders, data and account',
+                  screen: () => const AppManagementScreen(),
                   last: true,
                 ),
               ],
@@ -380,4 +500,9 @@ class AccountScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _initial(TextTheme text, AppTokens t, String name) => Text(
+    name.characters.first.toUpperCase(),
+    style: text.headlineMedium?.copyWith(color: t.cat(Cat.leaf).icon),
+  );
 }

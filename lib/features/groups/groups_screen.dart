@@ -9,6 +9,7 @@ import '../account/sync_providers.dart';
 import 'group_screen.dart';
 import 'groups_models.dart';
 import 'groups_providers.dart';
+import 'group_categories_ui.dart';
 import 'groups_ui.dart';
 import 'groups_widgets.dart';
 
@@ -88,8 +89,8 @@ class _SignedOut extends StatelessWidget {
     title: 'Groups need an account',
     detail:
         'Sign in to create a group or join one with an invite. Members see '
-        'only what they choose to share. Sleep and screen time are never '
-        'shared.',
+        'only what they choose to share. Sleep and screen time stay private '
+        'unless you switch them on for a group.',
     action: FilledButton(
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(kMinTapTarget),
@@ -112,8 +113,19 @@ Future<void> _createGroup(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (name == null || !context.mounted) return;
+  final sharing = await showSharingSheet(
+    context,
+    title: 'What would you like to share?',
+    intro:
+        'Choose what to share with $name. Only the categories you switch '
+        'on are visible to its members.',
+    action: 'Create group',
+  );
+  if (sharing == null || !context.mounted) return;
   try {
-    final g = await ref.read(groupsActionsProvider).create(name);
+    final g = await ref
+        .read(groupsActionsProvider)
+        .create(name, sharing: sharing);
     if (context.mounted) _open(context, g.id, g.name);
   } catch (e) {
     if (context.mounted) showGroupsError(context, e);
@@ -144,20 +156,22 @@ Future<void> _joinGroup(BuildContext context, WidgetRef ref) async {
     final remote = ref.read(groupsRemoteProvider);
     final preview = await remote.previewInvite(code);
     if (!context.mounted) return;
+    GroupSharing? sharing;
     if (!preview.alreadyMember) {
-      final ok = await confirm(
+      sharing = await showSharingSheet(
         context,
         title: 'Join ${preview.name}?',
-        body:
+        intro:
             '${preview.memberCount} '
-            '${preview.memberCount == 1 ? 'member' : 'members'}. '
-            'They will see the workouts and break goals you choose to '
-            'share. You can change that any time in group settings.',
+            '${preview.memberCount == 1 ? 'member' : 'members'}. They see '
+            'only what you choose to share.',
         action: 'Join',
       );
-      if (!ok || !context.mounted) return;
+      if (sharing == null || !context.mounted) return;
     }
-    final id = await ref.read(groupsActionsProvider).join(code);
+    final id = await ref
+        .read(groupsActionsProvider)
+        .join(code, sharing: sharing);
     if (context.mounted) _open(context, id, preview.name);
   } catch (e) {
     if (context.mounted) showGroupsError(context, e);

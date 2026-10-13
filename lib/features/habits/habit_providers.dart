@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show BooleanExpressionOperators, OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/app_database.dart';
@@ -8,6 +9,17 @@ import '../week/week_providers.dart';
 final activeHabitsProvider = StreamProvider<List<Habit>>((ref) async* {
   final user = await ref.watch(currentUserProvider.future);
   yield* ref.watch(habitRepositoryProvider).watchActive(user.id);
+});
+
+/// Every habit that has not been deleted, archived ones included, for the
+/// Manage screen.
+final manageableHabitsProvider = StreamProvider<List<Habit>>((ref) async* {
+  final user = await ref.watch(currentUserProvider.future);
+  final db = ref.watch(databaseProvider);
+  yield* (db.select(db.habits)
+        ..where((h) => h.userId.equals(user.id) & h.deletedAt.isNull())
+        ..orderBy([(h) => OrderingTerm.asc(h.createdAt)]))
+      .watch();
 });
 
 /// Completions today per habit id.

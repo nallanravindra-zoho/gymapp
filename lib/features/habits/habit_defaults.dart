@@ -4,7 +4,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/tables/tables.dart';
 import 'reminder_config.dart';
 
-/// Starting values for each kind of habit (spec 5, Habits and breaks).
+/// Starting values for each kind of habit (spec 5, Healthy Habits).
 class HabitDefaults {
   const HabitDefaults({
     required this.label,
@@ -34,7 +34,7 @@ final habitDefaults = <HabitKind, HabitDefaults>{
     ),
   ),
   HabitKind.stand: const HabitDefaults(
-    label: 'Stand',
+    label: 'Stand and move',
     icon: Icons.accessibility_new_rounded,
     dailyTarget: 8,
     config: ReminderConfig(
@@ -52,6 +52,26 @@ final habitDefaults = <HabitKind, HabitDefaults>{
       windowStart: 9 * 60,
       windowEnd: 15 * 60,
       everyMinutes: 120,
+      activeDays: _day,
+    ),
+  ),
+  HabitKind.moisturize: const HabitDefaults(
+    label: 'Moisturize',
+    icon: Icons.spa_rounded,
+    dailyTarget: 2,
+    config: ReminderConfig(
+      mode: ReminderMode.times,
+      times: [8 * 60, 21 * 60],
+      activeDays: _day,
+    ),
+  ),
+  HabitKind.skinCare: const HabitDefaults(
+    label: 'Skin care',
+    icon: Icons.face_retouching_natural_rounded,
+    dailyTarget: 2,
+    config: ReminderConfig(
+      mode: ReminderMode.times,
+      times: [8 * 60, 21 * 60],
       activeDays: _day,
     ),
   ),
@@ -75,7 +95,7 @@ Cat habitCat(HabitKind kind) => switch (kind) {
   HabitKind.water => Cat.water,
   HabitKind.stand => Cat.habit,
   HabitKind.stretch => Cat.stretch,
-  HabitKind.custom => Cat.leaf,
+  HabitKind.moisturize || HabitKind.skinCare || HabitKind.custom => Cat.leaf,
 };
 
 /// "Every 2 hours", "Every 90 minutes", or the times of day.
@@ -86,3 +106,10 @@ String describeInterval(int minutes) {
   }
   return 'Every $minutes minutes';
 }
+
+/// Quick picks offered when adding a custom habit.
+const customSuggestions = ['Meditation', 'Chanting'];
+
+/// "6 reminders a day". Counts reminders, never hours.
+String describeOccurrences(int n) =>
+    n == 1 ? '1 reminder a day' : '$n reminders a day';

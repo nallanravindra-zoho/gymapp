@@ -58,4 +58,32 @@ void main() {
       '01:02:03',
     );
   });
+
+  test('paused total includes a pause still in progress', () {
+    var s = TimerState(workoutTypeId: 'a', startedAt: t0);
+    s = s.pause(t0.add(const Duration(minutes: 10)));
+    s = s.resume(t0.add(const Duration(minutes: 15)));
+    s = s.pause(t0.add(const Duration(minutes: 20)));
+    expect(
+      s.paused(t0.add(const Duration(minutes: 22))),
+      const Duration(minutes: 7),
+    );
+  });
+
+  test('step base, intensity and note survive pause, resume and storage', () {
+    var s = TimerState(
+      workoutTypeId: 'builtin-walk',
+      startedAt: t0,
+      stepBase: 12345,
+      intensity: 'high',
+      note: 'Park loop',
+    );
+    s = s.pause(t0.add(const Duration(minutes: 1)));
+    s = s.resume(t0.add(const Duration(minutes: 2)));
+    final back = TimerState.fromJson(s.toJson())!;
+    expect(back.stepBase, 12345);
+    expect(back.intensity, 'high');
+    expect(back.note, 'Park loop');
+    expect(back.pausedMs, const Duration(minutes: 1).inMilliseconds);
+  });
 }

@@ -13,6 +13,10 @@ Future<void> wipeLocalAccountData(AppDatabase db, String localUserId) {
     await db.delete(db.workouts).go();
     await db.delete(db.habitLogs).go();
     await db.delete(db.habits).go();
+    await db.delete(db.habitSkips).go();
+    await db.delete(db.hobbyLogs).go();
+    await db.delete(db.hobbies).go();
+    await db.delete(db.bodyMeasurements).go();
     await db.delete(db.sleepLogs).go();
     await db.delete(db.sleepTargets).go();
     await db.delete(db.restDays).go();
@@ -40,6 +44,15 @@ Future<void> wipeLocalAccountData(AppDatabase db, String localUserId) {
           weeklyRestDays: const Value(2),
           freezeEnabled: const Value(true),
           freezeIntervalDays: const Value(7),
+          dateOfBirth: const Value(null),
+          gender: const Value(null),
+          heightCm: const Value(null),
+          weightKg: const Value(null),
+          measurementCadence: const Value('monthly'),
+          measurementReminderEnabled: const Value(true),
+          nextMeasurementDue: const Value(null),
+          reminderSound: const Value(null),
+          habitThreshold: const Value(1),
           // Untouched again: the new account's profile will replace it.
           updatedAt: Value(user.createdAt),
         ),

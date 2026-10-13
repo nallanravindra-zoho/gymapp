@@ -65,6 +65,64 @@ final groupLeaderboardProvider =
       return ref.watch(groupsRemoteProvider).leaderboard(groupId, week);
     }, retry: _noRetry);
 
+/// The tabs this member can see in a group this week.
+final groupTabsProvider = FutureProvider.family<Set<GroupTab>, String>((
+  ref,
+  groupId,
+) async {
+  final week = ref.watch(groupWeekStartProvider);
+  if (week == null) return const {};
+  return ref.watch(groupsRemoteProvider).availableTabs(groupId, week);
+}, retry: _noRetry);
+
+final groupOverallProvider = FutureProvider.family<List<OverallEntry>, String>((
+  ref,
+  groupId,
+) async {
+  final week = ref.watch(groupWeekStartProvider);
+  if (week == null) return const [];
+  return ref.watch(groupsRemoteProvider).overallBoard(groupId, week);
+}, retry: _noRetry);
+
+final groupCategoryBoardProvider =
+    FutureProvider.family<List<CategoryEntry>, (String, GroupCategory)>((
+      ref,
+      key,
+    ) async {
+      final week = ref.watch(groupWeekStartProvider);
+      if (week == null) return const [];
+      return ref
+          .watch(groupsRemoteProvider)
+          .categoryBoard(key.$1, week, key.$2);
+    }, retry: _noRetry);
+
+/// A participant's shared metrics: (group, user, category).
+final participantMetricsProvider =
+    FutureProvider.family<ParticipantMetrics?, (String, String, GroupCategory)>(
+      (ref, key) async {
+        final week = ref.watch(groupWeekStartProvider);
+        if (week == null) return null;
+        return ref
+            .watch(groupsRemoteProvider)
+            .memberMetrics(key.$1, key.$2, week, key.$3);
+      },
+      retry: _noRetry,
+    );
+
+/// Which tab of a group is open (null: the first available one).
+class GroupTabSelection extends Notifier<GroupTab?> {
+  GroupTabSelection(this.groupId);
+  final String groupId;
+  @override
+  GroupTab? build() => null;
+  void select(GroupTab tab) => state = tab;
+}
+
+final groupTabSelectionProvider =
+    NotifierProvider.family<GroupTabSelection, GroupTab?, String>(
+      GroupTabSelection.new,
+    );
+
 class LeaderboardMetricNotifier extends Notifier<LeaderboardMetric> {
   @override
   LeaderboardMetric build() => LeaderboardMetric.volume;
@@ -88,6 +146,12 @@ class GroupsActions {
     _ref.invalidate(groupRosterProvider(groupId));
     _ref.invalidate(groupFeedProvider(groupId));
     _ref.invalidate(groupLeaderboardProvider(groupId));
+    _ref.invalidate(groupTabsProvider(groupId));
+    _ref.invalidate(groupOverallProvider(groupId));
+    for (final c in GroupCategory.values) {
+      _ref.invalidate(groupCategoryBoardProvider((groupId, c)));
+    }
+    _ref.invalidate(participantMetricsProvider);
   }
 
   /// Members see each other by name. If none is set yet, use the account's.
@@ -105,16 +169,16 @@ class GroupsActions {
     }
   }
 
-  Future<Group> create(String name) async {
+  Future<Group> create(String name, {GroupSharing? sharing}) async {
     await _ensureName();
-    final g = await _remote.createGroup(name);
+    final g = await _remote.createGroup(name, sharing: sharing);
     _ref.invalidate(groupsListProvider);
     return g;
   }
 
-  Future<String> join(String code) async {
+  Future<String> join(String code, {GroupSharing? sharing}) async {
     await _ensureName();
-    final id = await _remote.joinGroup(code);
+    final id = await _remote.joinGroup(code, sharing: sharing);
     _ref.invalidate(groupsListProvider);
     return id;
   }
@@ -128,8 +192,18 @@ class GroupsActions {
     String groupId, {
     bool? workouts,
     bool? breaks,
+    bool? sleep,
+    bool? screenTime,
+    bool? hobbies,
   }) async {
-    await _remote.setSharing(groupId, workouts: workouts, breaks: breaks);
+    await _remote.setSharing(
+      groupId,
+      workouts: workouts,
+      breaks: breaks,
+      sleep: sleep,
+      screenTime: screenTime,
+      hobbies: hobbies,
+    );
     _refreshGroup(groupId);
   }
 

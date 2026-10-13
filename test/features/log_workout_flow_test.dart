@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/nav_a.dart';
+import '../helpers/workout_helpers.dart';
 import '../test_helpers.dart';
 
 void main() {
   appTest('empty state offers the Workout quick-log tile', (tester, db) async {
-    expect(find.text('Quick log'), findsOneWidget);
+    expect(find.byKey(const ValueKey('quick-Workout')), findsOneWidget);
+    expect(find.text("Today's Summary"), findsOneWidget);
     expect(find.text('Workout'), findsWidgets);
     expect(find.text('Not logged yet'), findsWidgets);
     expect(find.text('Wed, 13 May'), findsOneWidget);
@@ -57,6 +59,7 @@ void main() {
     await openLogScreen(tester);
     await tester.tap(find.text('Or enter manually'));
     await tester.pumpAndSettle();
+    await scrollToLogItem(tester, find.text('Save'));
     final save = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Save'),
     );
@@ -88,23 +91,43 @@ void main() {
     expect(find.text('Use timer instead'), findsOneWidget);
   });
 
-  appTest('tapping an entry edits it and delete removes it', (
+  appTest('a saved entry opens its detail; Edit and Delete work from there', (
     tester,
     db,
   ) async {
     await logToday(tester, 'Walk');
+    final id = (await db.select(db.workouts).get()).single.id;
 
-    await tester.tap(find.text('Walk • 30 min'));
+    await openDetail(tester, id);
+    expect(find.text('Walk'), findsWidgets);
+    await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     expect(find.text('Edit workout'), findsOneWidget);
-    await scrollToLogItem(tester, find.text('Delete'));
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('Delete'), 200);
     await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Delete').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Entry removed.'), findsOneWidget);
-    expect(find.text('Walk • 30 min'), findsNothing);
-    expect(find.text('Not logged yet'), findsWidgets);
     expect((await db.select(db.workouts).get()).single.deletedAt, isNotNull);
+  });
+
+  appTest('the picker offers the revised types and not Other', (
+    tester,
+    db,
+  ) async {
+    await openLogScreen(tester);
+    for (final n in [
+      'Yoga', 'Zumba', 'Walk', 'Run', 'Weights', 'Legs', 'Arms', 'Chest',
+      'Back', 'Stability', 'Flexibility', 'Custom', //
+    ]) {
+      expect(find.text(n), findsOneWidget, reason: n);
+    }
+    expect(find.text('Other'), findsNothing);
   });
 
   appTest('Start timer opens the timer screen and Cancel discards it', (

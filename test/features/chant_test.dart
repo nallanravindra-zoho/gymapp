@@ -1,17 +1,24 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wellbeing/core/theme/app_theme.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:drift/native.dart';
+import 'package:wellbeing/core/time/app_clock.dart';
+import 'package:wellbeing/data/app_database.dart';
+import 'package:wellbeing/data/repositories/habit_repository.dart';
+import 'package:wellbeing/data/repositories/hobby_repository.dart';
+import 'package:wellbeing/data/repositories/user_repository.dart';
+import 'package:wellbeing/data/tables/tables.dart';
+import 'package:wellbeing/features/hobbies/chant_save.dart';
 import 'package:wellbeing/features/hobbies/chant_controller.dart';
 import 'package:wellbeing/features/hobbies/chant_logic.dart';
 import 'package:wellbeing/features/hobbies/chant_platform.dart';
-import 'package:wellbeing/features/hobbies/chant_screen.dart';
 
 class FakeChantPlatform implements ChantPlatform {
   bool micAllowed = true;
+  int micRequests = 0;
   bool failStart = false;
   final levels = StreamController<double>.broadcast();
   final announced = <(ReminderMode, int, bool)>[];
@@ -19,7 +26,10 @@ class FakeChantPlatform implements ChantPlatform {
   bool listening = false;
 
   @override
-  Future<bool> requestMic() async => micAllowed;
+  Future<bool> requestMic() async {
+    micRequests++;
+    return micAllowed;
+  }
 
   @override
   Future<Stream<double>> startListening() async {
@@ -115,12 +125,14 @@ void main() {
         interval: 9,
         mode: ReminderMode.chime,
         sensitivity: -28,
+        micMode: true,
       );
       final back = ChantSettings.fromJson(s.toJson());
       expect(back.target, 54);
       expect(back.interval, 9);
       expect(back.mode, ReminderMode.chime);
       expect(back.sensitivity, -28);
+      expect(back.micMode, isTrue);
       final bad = ChantSettings.fromJson({
         'target': -3,
         'interval': 'x',
@@ -130,6 +142,7 @@ void main() {
       expect(bad.interval, 27);
       expect(bad.mode, ReminderMode.voice);
       expect(bad.sensitivity, isNull);
+      expect(bad.micMode, isFalse, reason: 'listening is off by default');
     });
 
     test('auto clears a fixed sensitivity', () {
@@ -177,32 +190,41 @@ void main() {
     Future<void> startFixed({int target = 3, int interval = 2}) async {
       container.read(chantControllerProvider);
       await ctl().updateSettings(
-        ChantSettings(target: target, interval: interval, sensitivity: -30),
+        ChantSettings(
+          target: target,
+          interval: interval,
+          sensitivity: -30,
+          micMode: true,
+        ),
       );
       await ctl().start();
     }
 
-    test('counts chants, reminds at checkpoints and completes', () async {
-      await startFixed();
-      expect(st().phase, ChantPhase.listening);
-      expect(platform.awake, isTrue);
-      await chant();
-      expect(st().count, 1);
-      expect(platform.announced, isEmpty);
-      await chant();
-      expect(st().count, 2);
-      expect(platform.announced, [(ReminderMode.voice, 2, false)]);
-      await chant();
-      await Future<void>.delayed(Duration.zero);
-      expect(st().count, 3);
-      expect(st().phase, ChantPhase.complete);
-      expect(platform.announced.last, (ReminderMode.voice, 3, true));
-      expect(platform.awake, isFalse);
-      expect(platform.listening, isFalse);
-    });
+    test(
+      'mic mode counts chants, reminds at checkpoints and completes',
+      () async {
+        await startFixed();
+        expect(st().phase, ChantPhase.listening);
+        expect(platform.awake, isTrue);
+        await chant();
+        expect(st().count, 1);
+        expect(platform.announced, isEmpty);
+        await chant();
+        expect(st().count, 2);
+        expect(platform.announced, [(ReminderMode.voice, 2, false)]);
+        await chant();
+        await Future<void>.delayed(Duration.zero);
+        expect(st().count, 3);
+        expect(st().phase, ChantPhase.complete);
+        expect(platform.announced.last, (ReminderMode.voice, 3, true));
+        expect(platform.awake, isFalse);
+        expect(platform.listening, isFalse);
+      },
+    );
 
     test('auto sensitivity calibrates, then listens', () async {
       container.read(chantControllerProvider);
+      await ctl().updateSettings(const ChantSettings(micMode: true));
       await ctl().start();
       expect(st().phase, ChantPhase.calibrating);
       for (var i = 0; i < 9; i++) {
@@ -228,6 +250,7 @@ void main() {
     test('refused microphone is reported and nothing starts', () async {
       platform.micAllowed = false;
       container.read(chantControllerProvider);
+      await ctl().updateSettings(const ChantSettings(micMode: true));
       await ctl().start();
       expect(st().micDenied, isTrue);
       expect(st().phase, ChantPhase.idle);
@@ -237,6 +260,7 @@ void main() {
     test('a microphone that will not open says so', () async {
       platform.failStart = true;
       container.read(chantControllerProvider);
+      await ctl().updateSettings(const ChantSettings(micMode: true));
       await ctl().start();
       expect(st().phase, ChantPhase.idle);
       expect(st().error, contains('Could not start listening'));
@@ -255,37 +279,263 @@ void main() {
     });
   });
 
-  testWidgets('screen shows the count, next reminder and Start', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final platform = FakeChantPlatform();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [chantPlatformProvider.overrideWithValue(platform)],
-        child: MaterialApp(
-          theme: buildTheme(Brightness.light),
-          home: const ChantScreen(),
-        ),
-      ),
+  group('manual counter (default)', () {
+    late FakeChantPlatform platform;
+    late DateTime clock;
+    late ProviderContainer container;
+
+    ChantController ctl() => container.read(chantControllerProvider.notifier);
+    ChantState st() => container.read(chantControllerProvider);
+
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      platform = FakeChantPlatform();
+      clock = DateTime(2026, 5, 13, 7);
+      container = ProviderContainer(
+        overrides: [
+          chantPlatformProvider.overrideWithValue(platform),
+          chantNowProvider.overrideWithValue(() => clock),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(chantControllerProvider);
+    });
+
+    test(
+      'listening is off by default and the microphone is not asked',
+      () async {
+        expect(st().settings.micMode, isFalse);
+        await ctl().start();
+        expect(st().phase, ChantPhase.running);
+        expect(platform.micRequests, 0);
+        expect(platform.listening, isFalse);
+        expect(platform.awake, isTrue);
+      },
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Om chanting'), findsOneWidget);
-    expect(find.text('Ready when you are'), findsOneWidget);
-    expect(find.text('of 108'), findsOneWidget);
-    expect(find.text('Next reminder at 27'), findsOneWidget);
-    await tester.tap(find.text('Start'));
-    await tester.pumpAndSettle();
-    expect(platform.listening, isTrue);
-    expect(find.text('Pause'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Pause'));
-    await tester.pump(const Duration(seconds: 3));
-    expect(find.text('Paused'), findsNothing, reason: 'count is still 0');
-    expect(find.text('Ready when you are'), findsOneWidget);
-    await tester.tap(find.byTooltip('Chant settings'));
-    await tester.pumpAndSettle();
-    expect(find.text('Reminders at: 27, 54, 81, 108'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 2));
+
+    test(
+      '+1 counts, undo takes one back, nothing counts before Start',
+      () async {
+        ctl().increment();
+        expect(st().count, 0);
+        await ctl().start();
+        ctl().increment();
+        ctl().increment();
+        expect(st().count, 2);
+        ctl().decrement();
+        expect(st().count, 1);
+        ctl().decrement();
+        ctl().decrement();
+        expect(st().count, 0, reason: 'never below zero');
+      },
+    );
+
+    test('reaching the target pings once and completes', () async {
+      await ctl().updateSettings(const ChantSettings(target: 3));
+      await ctl().start();
+      ctl().increment();
+      ctl().increment();
+      expect(platform.announced, isEmpty, reason: 'no ping before the target');
+      ctl().increment();
+      await Future<void>.delayed(Duration.zero);
+      expect(st().phase, ChantPhase.complete);
+      expect(platform.announced, [(ReminderMode.chime, 3, true)]);
+      expect(platform.awake, isFalse);
+      ctl().increment();
+      expect(st().count, 3, reason: 'no more counting once complete');
+    });
+
+    test('undo after completing goes back to paused', () async {
+      await ctl().updateSettings(const ChantSettings(target: 1));
+      await ctl().start();
+      ctl().increment();
+      await Future<void>.delayed(Duration.zero);
+      expect(st().phase, ChantPhase.complete);
+      ctl().decrement();
+      expect(st().phase, ChantPhase.idle);
+      expect(st().count, 0);
+    });
+
+    test('elapsed time comes from timestamps and survives pause', () async {
+      await ctl().start();
+      clock = clock.add(const Duration(seconds: 90));
+      expect(st().elapsed(clock), const Duration(seconds: 90));
+      await ctl().pause();
+      clock = clock.add(const Duration(minutes: 10));
+      expect(st().elapsed(clock), const Duration(seconds: 90));
+      await ctl().start();
+      clock = clock.add(const Duration(seconds: 30));
+      expect(st().elapsed(clock), const Duration(seconds: 120));
+    });
+
+    test('Finish before the target gives a summary to save', () async {
+      await ctl().updateSettings(const ChantSettings(target: 108));
+      await ctl().start();
+      for (var i = 0; i < 5; i++) {
+        ctl().increment();
+      }
+      clock = clock.add(const Duration(minutes: 7));
+      final s = await ctl().finish();
+      expect(s, isNotNull);
+      expect(s!.count, 5);
+      expect(s.reachedTarget, isFalse);
+      expect(s.minutes, 7);
+      expect(s.startedAt, DateTime(2026, 5, 13, 7));
+      expect(st().phase, ChantPhase.complete);
+    });
+
+    test('Finish with nothing counted just resets', () async {
+      await ctl().start();
+      expect(await ctl().finish(), isNull);
+      expect(st().phase, ChantPhase.idle);
+      expect(st().startedAt, isNull);
+    });
+
+    test('reset clears the session but keeps settings', () async {
+      await ctl().updateSettings(const ChantSettings(target: 9));
+      await ctl().start();
+      ctl().increment();
+      await ctl().reset();
+      expect(st().count, 0);
+      expect(st().startedAt, isNull);
+      expect(st().settings.target, 9);
+    });
+
+    test(
+      'mic mode can be switched on, and +1 still corrects the count',
+      () async {
+        await ctl().updateSettings(
+          const ChantSettings(target: 5, micMode: true, sensitivity: -30),
+        );
+        await ctl().start();
+        expect(platform.micRequests, 1);
+        expect(st().phase, ChantPhase.listening);
+        ctl().increment();
+        expect(st().count, 1);
+        ctl().decrement();
+        expect(st().count, 0);
+      },
+    );
+  });
+
+  test('chantElapsed handles paused and running', () {
+    final t = DateTime(2026);
+    expect(
+      chantElapsed(
+        accumulated: const Duration(seconds: 5),
+        runningSince: null,
+        now: t,
+      ),
+      const Duration(seconds: 5),
+    );
+    expect(
+      chantElapsed(
+        accumulated: const Duration(seconds: 5),
+        runningSince: t,
+        now: t.add(const Duration(seconds: 7)),
+      ),
+      const Duration(seconds: 12),
+    );
+  });
+
+  group('saving a session', () {
+    late AppDatabase db;
+    late HabitRepository habits;
+    late HobbyRepository hobbies;
+    late String userId;
+    final clock = FixedClock(DateTime.utc(2026, 5, 13, 10));
+    final summary = ChantSummary(
+      count: 108,
+      target: 108,
+      elapsed: const Duration(minutes: 12, seconds: 20),
+      startedAt: DateTime.utc(2026, 5, 13, 9, 40),
+      endedAt: DateTime.utc(2026, 5, 13, 9, 52, 20),
+    );
+
+    setUp(() async {
+      drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+      db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      habits = HabitRepository(db, clock);
+      hobbies = HobbyRepository(db, clock);
+      userId = (await UserRepository(db, clock).ensureUser()).id;
+    });
+
+    test('finds the Chanting habit by name, ignoring case', () async {
+      await habits.create(userId: userId, name: 'Water', kind: HabitKind.water);
+      expect(findChantingHabit(await habits.watchActive(userId).first), isNull);
+      final id = await habits.create(
+        userId: userId,
+        name: ' chanting ',
+        kind: HabitKind.custom,
+      );
+      expect(findChantingHabit(await habits.watchActive(userId).first)?.id, id);
+    });
+
+    test('logs the chant count into the habit and a hobby log', () async {
+      final habitId = await habits.create(
+        userId: userId,
+        name: 'Chanting',
+        kind: HabitKind.custom,
+        dailyTarget: 108,
+      );
+      await hobbies.ensureDefaults(userId);
+      final music = (await hobbies.watchActive(userId).first).firstWhere(
+        (h) => h.name == 'Music',
+      );
+      final habit = (await habits.byId(habitId))!;
+      final r = await saveChantSession(
+        summary: summary,
+        userId: userId,
+        dayCutoffMinutes: 0,
+        habits: habits,
+        hobbies: hobbies,
+        habit: habit,
+        hobbyId: music.id,
+      );
+      expect(r.savedAnything, isTrue);
+      final hl = await habits.logsBetween(habitId, '2026-05-13', '2026-05-13');
+      expect(hl.fold<int>(0, (a, l) => a + l.count), 108);
+      final ol = await hobbies.logsForDate(userId, '2026-05-13');
+      expect(ol, hasLength(1));
+      expect(ol.single.hobbyId, music.id);
+      expect(ol.single.durationMinutes, 12);
+      expect(ol.single.source, HobbyLogSource.timer);
+      expect(ol.single.note, contains('108 chants'));
+    });
+
+    test('with neither chosen nothing is written', () async {
+      final r = await saveChantSession(
+        summary: summary,
+        userId: userId,
+        dayCutoffMinutes: 0,
+        habits: habits,
+        hobbies: hobbies,
+      );
+      expect(r.savedAnything, isFalse);
+      expect(await hobbies.logsForDate(userId, '2026-05-13'), isEmpty);
+    });
+
+    test('a hobby alone does not touch habits', () async {
+      final habitId = await habits.create(
+        userId: userId,
+        name: 'Chanting',
+        kind: HabitKind.custom,
+      );
+      await hobbies.ensureDefaults(userId);
+      final h = (await hobbies.watchActive(userId).first).first;
+      await saveChantSession(
+        summary: summary,
+        userId: userId,
+        dayCutoffMinutes: 0,
+        habits: habits,
+        hobbies: hobbies,
+        hobbyId: h.id,
+      );
+      expect(
+        await habits.logsBetween(habitId, '2026-05-13', '2026-05-13'),
+        isEmpty,
+      );
+    });
   });
 }

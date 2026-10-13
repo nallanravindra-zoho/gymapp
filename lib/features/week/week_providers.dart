@@ -49,3 +49,12 @@ final weekRestDaysProvider = StreamProvider<Set<String>>((ref) async* {
       .watchBetween(user.id, start, shiftLocalDate(start, 6))
       .map((rows) => {for (final r in rows) r.localDate});
 });
+
+/// Workouts on any one local date (the day summary page).
+final workoutsOnProvider = StreamProvider.family<List<Workout>, String>((
+  ref,
+  date,
+) async* {
+  final user = await ref.watch(currentUserProvider.future);
+  yield* ref.watch(workoutRepositoryProvider).watchBetween(user.id, date, date);
+});

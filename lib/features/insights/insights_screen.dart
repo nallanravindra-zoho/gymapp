@@ -7,6 +7,7 @@ import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
 import '../../data/seed_tips.dart';
 import '../week/day_format.dart' show monthNames;
+import '../metrics/metrics_charts.dart';
 import '../workouts/workout_providers.dart';
 import 'insight_builder.dart';
 import 'insight_rules.dart';
@@ -76,6 +77,8 @@ class InsightsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 _RecapCard(recap: view.recap),
+                const SizedBox(height: 14),
+                const _MetricsLink(),
                 const SizedBox(height: 22),
                 Row(
                   children: [
@@ -249,6 +252,57 @@ class _Stat extends StatelessWidget {
         Text(value, style: text.titleLarge),
         Text(label, style: text.bodySmall),
       ],
+    );
+  }
+}
+
+/// A link to the weight, BMI and body measurement charts (private metrics).
+class _MetricsLink extends StatelessWidget {
+  const _MetricsLink();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final t = context.tokens;
+    return Semantics(
+      button: true,
+      label: 'Metrics, weight, BMI and body measurement charts',
+      child: ExcludeSemantics(
+        child: SoftCard(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const MetricsChartsScreen(),
+            ),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Row(
+              children: [
+                const TintedIcon(
+                  icon: Icons.show_chart_rounded,
+                  cat: Cat.leaf,
+                  size: 44,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Metrics', style: text.titleMedium),
+                      Text(
+                        'Weight, BMI and body measurements over time. '
+                        'Private to you.',
+                        style: text.bodySmall?.copyWith(color: t.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: t.textMuted),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

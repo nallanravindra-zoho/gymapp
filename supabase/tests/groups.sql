@@ -334,14 +334,28 @@ delete from reactions;
 reset role;
 select pg_temp.assert((select count(*) from reactions) = 0, 'bob takes his cheer back');
 
--- 6. Sleep and screen time never reach a group --------------------------------------
+-- 6. Sleep and screen time stay out of the feed, the leaderboard and triggers ----------
+-- Since category scoring (20261013000000_group_categories.sql) one internal
+-- function, group_daily_scores, reads sleep and screen time for opted-in
+-- members. This guard therefore names exactly that function instead of banning
+-- every reader; tests/group_categories.sql checks the opt-in behaviour, who can
+-- call it, and that body measurements are never read. Without that migration
+-- (as in this file's own database) the list is empty.
 select pg_temp.assert(
-  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  coalesce((select array_agg(p.proname::text order by p.proname)
+   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.prokind = 'f'
      and (pg_get_functiondef(p.oid) ilike '%sleep_logs%'
-       or pg_get_functiondef(p.oid) ilike '%screen_time%'
-       or pg_get_functiondef(p.oid) ilike '%sleep_targets%')) = 0,
-  'no function in the schema reads sleep or screen time');
+       or pg_get_functiondef(p.oid) ilike '%screen_time_daily%'
+       or pg_get_functiondef(p.oid) ilike '%sleep_targets%')), array[]::text[])
+  <@ array['group_daily_scores'],
+  'only the scoring function may read sleep or screen time');
+select pg_temp.assert(
+  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname in ('group_leaderboard', 'post_group_event',
+         'workouts_to_group_events', 'habit_logs_to_group_events', 'badges_to_group_events')
+         and (pg_get_functiondef(p.oid) ilike '%sleep%' or pg_get_functiondef(p.oid) ilike '%screen%')) = 0,
+  'the feed, triggers and weekly leaderboard never mention sleep or screen time');
 
 -- 7. Invite codes ----------------------------------------------------------------------
 select pg_temp.as_user(:bob);

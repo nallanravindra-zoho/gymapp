@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import 'badges.dart';
+import 'category_streaks.dart';
 import 'streak_providers.dart';
 
 class MilestonesScreen extends ConsumerWidget {
@@ -15,6 +16,10 @@ class MilestonesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snap = ref.watch(streakSnapshotProvider);
     final awarded = ref.watch(awardedBadgesProvider).value ?? const <String>{};
+    final earnedOn =
+        ref.watch(awardedBadgeDatesProvider).value ??
+        const <String, DateTime>{};
+    final streaks = ref.watch(categoryStreaksProvider);
     final t = context.tokens;
     final text = Theme.of(context).textTheme;
     final current = snap?.overall.current ?? 0;
@@ -84,7 +89,7 @@ class MilestonesScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'activity streak',
+                        'overall activity streak',
                         style: text.bodyLarge?.copyWith(color: t.accentDeep),
                       ),
                     ],
@@ -102,7 +107,27 @@ class MilestonesScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 22),
-          Text('Badges', style: text.titleMedium),
+          for (final c in StreakCategory.values) ...[
+            CategoryMilestones(
+              streak:
+                  streaks?[c] ??
+                  CategoryStreak(
+                    category: c,
+                    current: 0,
+                    longest: 0,
+                    hasGoal: c != StreakCategory.hobbies,
+                  ),
+              earnedOn: earnedOn,
+            ),
+            const SizedBox(height: 18),
+          ],
+          Text('Overall activity badges', style: text.titleMedium),
+          const SizedBox(height: 2),
+          Text(
+            'Overall activity allows rest days and a streak freeze, so it is '
+            'kept apart from the four streaks above.',
+            style: text.bodySmall?.copyWith(color: t.textMuted),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -146,6 +171,194 @@ class MilestonesScreen extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// `12 May 2026`.
+String formatEarnedDate(DateTime d) {
+  final l = d.toLocal();
+  return '${l.day} ${_months[l.month - 1]} ${l.year}';
+}
+
+/// One category: its streak and a grid of the six milestones. Earned ones are
+/// filled and coloured with the date; the next one shows how far there is to
+/// go; the rest stay visible but subdued.
+class CategoryMilestones extends StatelessWidget {
+  const CategoryMilestones({
+    super.key,
+    required this.streak,
+    required this.earnedOn,
+  });
+
+  final CategoryStreak streak;
+  final Map<String, DateTime> earnedOn;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = streak.category;
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    final colors = t.cat(c.cat);
+    final earned = {
+      for (final m in categoryMilestones)
+        if (earnedOn.containsKey(c.badgeKey(m))) m,
+    };
+    int? next;
+    for (final m in categoryMilestones) {
+      if (!earned.contains(m) && m > streak.current) {
+        next = m;
+        break;
+      }
+    }
+    final unit = streak.unit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            TintedIcon(icon: c.icon, cat: c.cat, size: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(c.label, style: text.titleMedium),
+                  Text(
+                    '${streak.caption}. Now ${streak.currentText}.',
+                    style: text.bodySmall?.copyWith(color: t.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, box) {
+            const gap = 8.0;
+            final w = (box.maxWidth - gap * 2) / 3;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final m in categoryMilestones)
+                  SizedBox(
+                    width: w,
+                    child: _MilestoneTile(
+                      category: c,
+                      milestone: m,
+                      unit: unit,
+                      colors: colors,
+                      earnedAt: earnedOn[c.badgeKey(m)],
+                      toGo: m == next
+                          ? toGoText(m, streak.current, unit)
+                          : null,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _MilestoneTile extends StatelessWidget {
+  const _MilestoneTile({
+    required this.category,
+    required this.milestone,
+    required this.unit,
+    required this.colors,
+    required this.earnedAt,
+    required this.toGo,
+  });
+
+  final StreakCategory category;
+  final int milestone;
+  final StreakUnit unit;
+  final CatColors colors;
+  final DateTime? earnedAt;
+  final String? toGo;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    final earned = earnedAt != null;
+    final title = '$milestone ${unit.word(milestone)}';
+    final sub = earned ? formatEarnedDate(earnedAt!) : (toGo ?? 'Not yet');
+    return Semantics(
+      container: true,
+      label:
+          '${category.label} $title badge, '
+          '${earned ? 'earned ${formatEarnedDate(earnedAt!)}' : (toGo ?? 'not yet earned')}',
+      child: ExcludeSemantics(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 112),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          decoration: BoxDecoration(
+            color: earned ? colors.tint : t.track.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(18),
+            border: earned
+                ? Border.all(
+                    color: colors.icon.withValues(alpha: 0.5),
+                    width: 1.5,
+                  )
+                : null,
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: earned ? colors.icon : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  earned ? category.icon : Icons.lock_outline_rounded,
+                  size: earned ? 26 : 22,
+                  color: earned ? Colors.white : t.textMuted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: text.titleSmall?.copyWith(
+                  color: earned ? t.text : t.textMuted,
+                  fontWeight: earned ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+              Text(
+                sub,
+                textAlign: TextAlign.center,
+                style: text.bodySmall?.copyWith(
+                  color: earned || toGo != null ? t.text : t.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

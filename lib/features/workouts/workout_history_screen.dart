@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/app_database.dart';
 import '../streaks/streak_providers.dart';
-import 'log_workout_screen.dart';
+import 'workout_detail_screen.dart';
 import 'workout_providers.dart';
 import 'workout_row.dart';
 
@@ -17,7 +17,7 @@ class WorkoutHistoryScreen extends ConsumerWidget {
     final all = ref.watch(allWorkoutsProvider).value ?? const <Workout>[];
     final types = {
       for (final t
-          in ref.watch(workoutTypesProvider).value ?? const <WorkoutType>[])
+          in ref.watch(allWorkoutTypesProvider).value ?? const <WorkoutType>[])
         t.id: t,
     };
     final sorted = [...all]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
@@ -52,7 +52,7 @@ class WorkoutHistoryScreen extends ConsumerWidget {
               itemBuilder: (_, i) => WorkoutRow(
                 workout: sorted[i],
                 type: types[sorted[i].workoutTypeId],
-                onTap: () => openLogWorkout(context, existing: sorted[i]),
+                onTap: () => openWorkoutDetail(context, sorted[i].id),
               ),
             ),
     );

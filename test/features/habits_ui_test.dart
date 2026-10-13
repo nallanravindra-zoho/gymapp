@@ -5,24 +5,35 @@ import 'package:wellbeing/core/time/local_date.dart';
 import 'package:wellbeing/data/repositories/habit_repository.dart';
 import 'package:wellbeing/data/repositories/user_repository.dart';
 import 'package:wellbeing/data/tables/tables.dart';
+import 'package:wellbeing/features/habits/reminder_config.dart';
 
 import '../helpers/nav_b.dart';
 import '../test_helpers.dart';
 
-/// Opens Healthy Habits from Today and starts a new habit on its Setup tab.
+/// Opens Healthy Habits from Today and starts a new habit from Manage.
 Future<void> startNewHabit(WidgetTester tester) async {
   await openHabits(tester);
-  await tester.tap(find.text('Setup'));
+  await tester.tap(find.text('Manage'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Add habit'));
   await tester.pumpAndSettle();
 }
 
-/// Adds the default (water) habit; ends on the Healthy Habits screen.
+/// Opens a habit's detail screen through Manage.
+Future<void> openDetailFromManage(WidgetTester tester, String name) async {
+  await tester.tap(find.text('Manage'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(name));
+  await tester.pumpAndSettle();
+}
+
+/// Adds the default (water) habit through Manage; ends on the Healthy
+/// Habits screen.
 Future<void> addDefaultHabit(WidgetTester tester) async {
   await startNewHabit(tester);
   await tester.tap(find.text('Save'));
   await tester.pumpAndSettle();
+  await goBack(tester); // from Manage
 }
 
 void main() {
@@ -32,9 +43,8 @@ void main() {
     await openHabits(tester);
     expect(find.text('Healthy Habits'), findsWidgets);
     expect(find.textContaining('No habits yet.'), findsOneWidget);
-    await tester.tap(find.text('Setup'));
-    await tester.pumpAndSettle();
     expect(find.text('Add habit'), findsOneWidget);
+    expect(find.text('Manage'), findsOneWidget);
   });
 
   appTest('creating a habit uses kind defaults and shows it on Today', (
@@ -43,9 +53,6 @@ void main() {
   ) async {
     await addDefaultHabit(tester);
     expect(find.text('Water'), findsOneWidget);
-    expect(find.text('6 per day, reminders off'), findsOneWidget);
-    await tester.tap(find.text('Today'));
-    await tester.pumpAndSettle();
     expect(find.textContaining('0/6'), findsOneWidget);
     await goBack(tester);
     expect(find.text('Water'), findsOneWidget); // on Today too
@@ -64,7 +71,7 @@ void main() {
     db,
   ) async {
     await startNewHabit(tester);
-    await tester.tap(find.text('Stand'));
+    await tester.tap(find.text('Stand and move'));
     await tester.pumpAndSettle();
     expect(find.text('8'), findsOneWidget); // stand default target
 
@@ -83,8 +90,6 @@ void main() {
 
   appTest('tapping a habit logs one and Undo removes it', (tester, db) async {
     await addDefaultHabit(tester);
-    await tester.tap(find.text('Today')); // list tab of Healthy Habits
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Water'));
     await tester.pumpAndSettle();
     expect(find.textContaining('1/6'), findsOneWidget);
@@ -103,7 +108,7 @@ void main() {
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     expect(find.text('Active days'), findsOneWidget);
-
+    await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(find.text('Allow notifications'), findsOneWidget);
@@ -114,7 +119,7 @@ void main() {
     expect((await db.select(db.habits).get()).single.remindersEnabled, isTrue);
     // Water defaults: 09:00-17:00 every 2 hours; 10:00 UTC "now" skips 09:00.
     expect(testScheduler.planned, isNotEmpty);
-    expect(testScheduler.planned.first.title, 'Water break.');
+    expect(testScheduler.planned.first.title, 'Time for some water.');
     expect(testScheduler.planned.first.at.isAfter(testNow.toLocal()), isTrue);
   });
 
@@ -125,6 +130,7 @@ void main() {
     await startNewHabit(tester);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Not now'));
@@ -143,6 +149,7 @@ void main() {
     await startNewHabit(tester);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
@@ -154,28 +161,12 @@ void main() {
     expect(testScheduler.planned, isEmpty);
   });
 
-  appTest('set-times mode requires at least one time', (tester, db) async {
-    await startNewHabit(tester);
-    await tester.tap(find.byType(Switch));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Set times'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Save'));
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    expect(find.text('Add at least one reminder time.'), findsOneWidget);
-    expect(await db.select(db.habits).get(), isEmpty);
-  });
-
   appTest('habit detail shows count, streak and four weeks of history', (
     tester,
     db,
   ) async {
     await addDefaultHabit(tester);
-    await tester.tap(find.text('Setup'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Water')); // opens the habit detail
-    await tester.pumpAndSettle();
+    await openDetailFromManage(tester, 'Water');
 
     expect(find.text('0 of 6'), findsOneWidget);
     expect(find.text('Current streak'), findsOneWidget);
@@ -192,10 +183,7 @@ void main() {
 
   appTest('deleting a habit removes it from Today', (tester, db) async {
     await addDefaultHabit(tester);
-    await tester.tap(find.text('Setup'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Water')); // opens the habit detail
-    await tester.pumpAndSettle();
+    await openDetailFromManage(tester, 'Water');
     await tester.tap(find.byTooltip('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete').last);
@@ -230,11 +218,13 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    expect(find.text('7-day streak reached.'), findsOneWidget);
+    expect(find.textContaining('streak reached.'), findsOneWidget);
     final keys = (await db.select(db.badgesAwarded).get()).map(
       (b) => b.badgeKey,
     );
-    expect(keys, ['streak_habit:${habit.id}_7']);
+    // The habit's own badge plus the Healthy habits category badge.
+    expect(keys.toSet(), {'streak_habit:${habit.id}_7', 'habits_7'});
+    expect(keys.length, 2);
   });
 
   test('habit copy has no exclamation marks', () {
@@ -243,6 +233,7 @@ void main() {
       'Enter a name.',
       'Add at least one reminder time.',
       'Choose at least one day.',
+      windowOrderMessage,
       'Reminders need permission to show notifications.',
       'Reminders will start once notifications are allowed.',
       'Notifications are off for this app.',

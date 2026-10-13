@@ -1,5 +1,6 @@
 import 'dart:ui' show DartPluginRegistrant;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -9,9 +10,28 @@ import 'notification_scheduler.dart';
 import 'action_bridge.dart';
 import 'reminder_actions.dart';
 
+/// The reminder channel without a chosen sound (the phone's default).
 const _channelId = 'habit_reminders';
-const logActionId = 'log';
-const snoozeActionId = 'snooze';
+
+/// The channel for [sound]. Android fixes a channel's sound when it is
+/// created, so each sound gets its own channel id; null is the default one.
+@visibleForTesting
+String channelIdFor(String? sound) {
+  if (sound == null || sound.isEmpty) return _channelId;
+  var h = 17;
+  for (final c in sound.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return '${_channelId}_${h.toRadixString(16)}';
+}
+
+/// Only URIs can name a sound here; anything else uses the phone's default.
+AndroidNotificationSound? _soundFor(String? sound) {
+  if (sound == null || sound.isEmpty) return null;
+  final uri = Uri.tryParse(sound);
+  if (uri == null || !uri.hasScheme) return null;
+  return UriAndroidNotificationSound(sound);
+}
 
 /// [NotificationScheduler] backed by flutter_local_notifications (Android).
 class PluginNotificationScheduler implements NotificationScheduler {
@@ -51,23 +71,58 @@ class PluginNotificationScheduler implements NotificationScheduler {
   @override
   Future<void> cancelPlanned() async {
     for (final p in await _plugin.pendingNotificationRequests()) {
-      if (p.id < snoozeIdBase) await _plugin.cancel(id: p.id);
+      if (p.id < plannedIdLimit) await _plugin.cancel(id: p.id);
     }
   }
 
   @override
   Future<void> cancel(int id) => _plugin.cancel(id: id);
 
-  static const _details = NotificationDetails(
+  String? _sound;
+
+  @override
+  Future<void> useSound(String? sound) async {
+    final android = _android;
+    if (android == null) return;
+    _sound = sound;
+    final id = channelIdFor(sound);
+    try {
+      await android.createNotificationChannel(
+        AndroidNotificationChannel(
+          id,
+          'Habit reminders',
+          description: 'Healthy Habits reminders',
+          importance: Importance.defaultImportance,
+          sound: _soundFor(sound),
+        ),
+      );
+      // A channel's sound cannot change, so channels for other sounds go.
+      for (final c in await android.getNotificationChannels() ?? const []) {
+        if (c.id.startsWith(_channelId) && c.id != id) {
+          await android.deleteNotificationChannel(channelId: c.id);
+        }
+      }
+    } catch (_) {
+      // The channel is created on first use anyway.
+    }
+  }
+
+  /// Not ongoing: the reminder can be dismissed, and the habit stays loggable
+  /// in the app. Log and Skip are separate buttons on each reminder.
+  NotificationDetails get _details => NotificationDetails(
     android: AndroidNotificationDetails(
-      _channelId,
+      channelIdFor(_sound),
       'Habit reminders',
-      channelDescription: 'Water, stand and stretch breaks',
+      channelDescription: 'Healthy Habits reminders',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
-      actions: [
+      ongoing: false,
+      autoCancel: true,
+      sound: _soundFor(_sound),
+      category: AndroidNotificationCategory.reminder,
+      actions: const [
         AndroidNotificationAction(logActionId, 'Log'),
-        AndroidNotificationAction(snoozeActionId, 'Snooze 30 min'),
+        AndroidNotificationAction(skipActionId, 'Skip'),
       ],
     ),
   );
@@ -106,7 +161,9 @@ class PluginNotificationScheduler implements NotificationScheduler {
     String? level;
     try {
       final channels = await android?.getNotificationChannels();
-      final ours = channels?.where((c) => c.id == _channelId).firstOrNull;
+      final ours = channels
+          ?.where((c) => c.id == channelIdFor(_sound))
+          .firstOrNull;
       level = ours == null
           ? null
           : switch (ours.importance) {

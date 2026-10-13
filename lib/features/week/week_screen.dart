@@ -6,10 +6,10 @@ import '../../core/theme/tokens.dart';
 import '../../core/time/local_date.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
+import '../hobbies/hobby_providers.dart';
 import '../streaks/streak_card.dart';
-import '../workouts/log_workout_screen.dart';
+import '../workouts/workout_detail_screen.dart';
 import '../workouts/workout_history_screen.dart';
-import '../workouts/workout_icons.dart';
 import '../workouts/workout_providers.dart';
 import '../workouts/workout_row.dart';
 import 'day_format.dart';
@@ -79,7 +79,6 @@ class WeekScreen extends ConsumerWidget {
                 _DayStrip(
                   dates: weekDates(weekStart),
                   marks: marks,
-                  types: types,
                   today: today,
                 ),
                 const SizedBox(height: 22),
@@ -108,11 +107,12 @@ class WeekScreen extends ConsumerWidget {
                     WorkoutRow(
                       workout: w,
                       type: types[w.workoutTypeId],
-                      onTap: () => openLogWorkout(context, existing: w),
+                      onTap: () => openWorkoutDetail(context, w.id),
                     ),
                     const SizedBox(height: 10),
                   ],
                 const SizedBox(height: 14),
+                _WeeklyHobbyGoals(weekStart: weekStart),
                 Text('Streaks', style: text.titleMedium),
                 const SizedBox(height: 12),
                 const WeekStreaks(),
@@ -194,13 +194,11 @@ class _DayStrip extends StatelessWidget {
   const _DayStrip({
     required this.dates,
     required this.marks,
-    required this.types,
     required this.today,
   });
 
   final List<String> dates;
   final Map<String, DayMarks> marks;
-  final Map<String, WorkoutType> types;
   final String? today;
 
   @override
@@ -214,7 +212,6 @@ class _DayStrip extends StatelessWidget {
               date: dates[i],
               marks: marks[dates[i]] ?? const DayMarks(),
               isToday: dates[i] == today,
-              types: types,
             ),
           ),
       ],
@@ -222,9 +219,26 @@ class _DayStrip extends StatelessWidget {
   }
 }
 
-/// Up to this many small category icons are shown under a day's main icon;
-/// any more become a `+N`.
-const _maxExtraMarks = 2;
+/// Icon and label for each calendar category.
+(IconData, Cat, String) markStyle(MarkCategory c) => switch (c) {
+  MarkCategory.workout => (
+    Icons.self_improvement_rounded,
+    Cat.workout,
+    'workout',
+  ),
+  MarkCategory.habits => (Icons.spa_rounded, Cat.habit, 'healthy habits met'),
+  MarkCategory.hobbies => (
+    Icons.interests_rounded,
+    Cat.hobby,
+    'hobby goal met',
+  ),
+  MarkCategory.sleep => (Icons.nightlight_round, Cat.sleep, 'sleep target met'),
+  MarkCategory.screen => (
+    Icons.smartphone_rounded,
+    Cat.screen,
+    'screen time target met',
+  ),
+};
 
 class _DayCell extends StatelessWidget {
   const _DayCell({
@@ -232,47 +246,19 @@ class _DayCell extends StatelessWidget {
     required this.date,
     required this.marks,
     required this.isToday,
-    required this.types,
   });
 
   final String label;
   final String date;
   final DayMarks marks;
   final bool isToday;
-  final Map<String, WorkoutType> types;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     final day = parseLocalDate(date).day;
     final dark = Theme.of(context).brightness == Brightness.dark;
-
-    // The main circle: the first workout if there is one, otherwise the
-    // first other category that was achieved.
-    final first = marks.workouts.isEmpty ? null : marks.workouts.first;
-    final key = first == null
-        ? 'custom'
-        : types[first.workoutTypeId]?.iconKey ?? 'custom';
-    final others = <(IconData, Cat)>[
-      if (marks.habits) (Icons.water_drop_rounded, Cat.water),
-      if (marks.sleep) (Icons.nightlight_round, Cat.sleep),
-      if (marks.screen) (Icons.smartphone_rounded, Cat.screen),
-    ];
-
-    IconData? mainIcon;
-    CatColors? mainColors;
-    var extras = others;
-    if (first != null) {
-      mainIcon = workoutIcon(key);
-      mainColors = workoutColors(context, key);
-    } else if (others.isNotEmpty) {
-      mainIcon = others.first.$1;
-      mainColors = t.cat(others.first.$2);
-      extras = others.sublist(1);
-    } else if (marks.rest) {
-      mainIcon = Icons.bedtime_outlined;
-      mainColors = t.cat(Cat.neutral);
-    }
+    final visible = limitMarks(marks.categories);
 
     final fg = isToday ? Colors.white : t.text;
     final bg = isToday
@@ -282,9 +268,8 @@ class _DayCell extends StatelessWidget {
     final spoken = [
       if (marks.workouts.isNotEmpty)
         '${marks.workouts.length} workout${marks.workouts.length > 1 ? 's' : ''}',
-      if (marks.habits) 'healthy habits met',
-      if (marks.sleep) 'sleep target met',
-      if (marks.screen) 'screen time goal met',
+      for (final c in marks.categories)
+        if (c != MarkCategory.workout) markStyle(c).$3,
       if (marks.rest) 'rest day',
     ];
 
@@ -297,12 +282,12 @@ class _DayCell extends StatelessWidget {
         onTap: () => openDaySummary(context, date),
         child: ExcludeSemantics(
           child: Container(
-            height: 116,
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            constraints: const BoxConstraints(minHeight: 108),
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Column(
               children: [
@@ -324,61 +309,122 @@ class _DayCell extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                if (mainIcon != null)
-                  Badge(
-                    isLabelVisible: marks.workouts.length > 1,
-                    label: Text('${marks.workouts.length}'),
-                    backgroundColor: t.accent,
-                    child: TintedIcon(
-                      icon: mainIcon,
-                      tint: isToday
-                          ? Colors.white.withValues(alpha: 0.22)
-                          : mainColors!.tint,
-                      color: isToday ? Colors.white : mainColors!.icon,
-                      size: 34,
-                      iconSize: 19,
-                    ),
+                if (visible.shown.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: marks.rest
+                        ? Icon(
+                            Icons.bedtime_outlined,
+                            size: 16,
+                            color: isToday ? Colors.white : t.textMuted,
+                          )
+                        : Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: (isToday ? Colors.white : t.textMuted)
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
                   )
                 else
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: (isToday ? Colors.white : t.textMuted)
-                            .withValues(alpha: 0.4),
-                      ),
-                    ),
-                  ),
-                if (extras.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 3,
+                    runSpacing: 3,
                     children: [
-                      for (final e in extras.take(_maxExtraMarks))
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                      for (final c in visible.shown)
+                        Container(
+                          key: ValueKey('mark-${c.name}'),
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? Colors.white.withValues(alpha: 0.22)
+                                : t.cat(markStyle(c).$2).tint,
+                            shape: BoxShape.circle,
+                          ),
                           child: Icon(
-                            e.$1,
+                            markStyle(c).$1,
                             size: 12,
-                            color: isToday ? Colors.white : t.cat(e.$2).icon,
+                            color: isToday
+                                ? Colors.white
+                                : t.cat(markStyle(c).$2).icon,
                           ),
                         ),
-                      if (extras.length > _maxExtraMarks)
-                        Text(
-                          '+${extras.length - _maxExtraMarks}',
-                          style: TextStyle(fontSize: 10, color: fg),
+                      if (visible.overflow > 0)
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: Center(
+                            child: Text(
+                              '+${visible.overflow}',
+                              key: const ValueKey('mark-overflow'),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: fg,
+                              ),
+                            ),
+                          ),
                         ),
                     ],
                   ),
-                ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Weekly hobby goals met this week. Weekly goals belong to the week, so they
+/// are listed here and never put on a single day of the calendar.
+class _WeeklyHobbyGoals extends ConsumerWidget {
+  const _WeeklyHobbyGoals({required this.weekStart});
+
+  final String weekStart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final met = ref.watch(weeklyHobbyGoalsMetProvider(weekStart));
+    final hobbies = ref.watch(activeHobbiesProvider).value ?? const <Hobby>[];
+    final names = [
+      for (final h in hobbies)
+        if (met.contains(h.id)) h.name,
+    ];
+    if (names.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: SoftCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const TintedIcon(
+              icon: Icons.interests_rounded,
+              cat: Cat.hobby,
+              size: 42,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Weekly hobby goals met',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  Text(
+                    names.join(', '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

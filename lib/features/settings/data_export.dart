@@ -52,7 +52,7 @@ Future<DataExport> buildJsonExport(AppDatabase db, DateTime now) async {
   final user = await db.select(db.users).getSingleOrNull();
   final data = <String, Object?>{
     'app': 'Well-Being Companion',
-    'exportVersion': 1,
+    'exportVersion': 2,
     'exportedAt': now.toUtc().toIso8601String(),
     'profile': user?.toJson(serializer: _dates),
     'customWorkoutTypes': rows(
@@ -68,6 +68,22 @@ Future<DataExport> buildJsonExport(AppDatabase db, DateTime now) async {
     ),
     'habitLogs': rows(
       await (db.select(db.habitLogs)..where((t) => t.deletedAt.isNull())).get(),
+    ),
+    'habitSkips': rows(
+      await (db.select(
+        db.habitSkips,
+      )..where((t) => t.deletedAt.isNull())).get(),
+    ),
+    'hobbies': rows(
+      await (db.select(db.hobbies)..where((t) => t.deletedAt.isNull())).get(),
+    ),
+    'hobbyLogs': rows(
+      await (db.select(db.hobbyLogs)..where((t) => t.deletedAt.isNull())).get(),
+    ),
+    'bodyMeasurements': rows(
+      await (db.select(
+        db.bodyMeasurements,
+      )..where((t) => t.deletedAt.isNull())).get(),
     ),
     'sleepTargets': rows(await db.select(db.sleepTargets).get()),
     'sleepLogs': rows(

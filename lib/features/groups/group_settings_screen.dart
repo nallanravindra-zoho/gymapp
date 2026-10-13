@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../account/sync_providers.dart';
+import 'group_categories_ui.dart';
 import 'groups_models.dart';
 import 'groups_providers.dart';
 import 'groups_widgets.dart';
 import 'text_share.dart';
 
-/// Name, invite link, what you share with this group, and leaving.
+/// Name, invite code, what you share with this group, and leaving.
 class GroupSettingsScreen extends ConsumerWidget {
   const GroupSettingsScreen({super.key, required this.groupId});
 
@@ -180,42 +181,56 @@ class GroupSettingsScreen extends ConsumerWidget {
           Text('What you share here', style: text.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'Only what is switched on is visible to this group. Turning '
-            'something off hides it again straight away. Sleep and screen '
-            'time are never shared.',
+            'Only what is switched on is visible to this group, and only to '
+            'members who share the same category. Turning something off '
+            'hides it again straight away, and a category you do not share '
+            'does not rank you. Sleep and screen time start off. '
+            '$neverSharedText',
             style: muted,
           ),
           const SizedBox(height: 8),
           Card(
             child: Column(
               children: [
-                SwitchListTile(
-                  title: const Text('Workouts'),
-                  subtitle: const Text(
-                    'Appear in the activity feed and on the leaderboard.',
+                for (final c in GroupCategory.values)
+                  SwitchListTile(
+                    title: Text(c.label),
+                    subtitle: Text(categoryShareText(c)),
+                    value: mine?.shares(c) ?? const GroupSharing().shares(c),
+                    onChanged: mine == null
+                        ? null
+                        : (v) => guarded(
+                            () => switch (c) {
+                              GroupCategory.workouts => actions.setSharing(
+                                groupId,
+                                workouts: v,
+                              ),
+                              GroupCategory.habits => actions.setSharing(
+                                groupId,
+                                breaks: v,
+                              ),
+                              GroupCategory.sleep => actions.setSharing(
+                                groupId,
+                                sleep: v,
+                              ),
+                              GroupCategory.screenTime => actions.setSharing(
+                                groupId,
+                                screenTime: v,
+                              ),
+                            },
+                          ),
                   ),
-                  value: mine?.shareWorkouts ?? true,
-                  onChanged: mine == null
-                      ? null
-                      : (v) => guarded(
-                          () => actions.setSharing(groupId, workouts: v),
-                        ),
-                ),
-                SwitchListTile(
-                  title: const Text('Break goals'),
-                  subtitle: const Text(
-                    'Appear in the activity feed and count towards active '
-                    'days.',
-                  ),
-                  value: mine?.shareBreaks ?? true,
-                  onChanged: mine == null
-                      ? null
-                      : (v) => guarded(
-                          () => actions.setSharing(groupId, breaks: v),
-                        ),
-                ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+          Text('How ranking works', style: text.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'Each category compares people with their own targets, so '
+            'different units are fair to compare. $overallDisclosure No '
+            'overall number is shown, only rank.',
+            style: muted,
           ),
           const SizedBox(height: 24),
           TextButton(

@@ -67,7 +67,7 @@ void main() {
 
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Allowed'), findsOneWidget);
-    expect(find.text('Water break.'), findsWidgets);
+    expect(find.text('Time for some water.'), findsWidgets);
     expect(find.text('12:00 PM'), findsWidgets);
     expect(find.text('Today'), findsWidgets);
     expect(find.text('Tomorrow'), findsWidgets);

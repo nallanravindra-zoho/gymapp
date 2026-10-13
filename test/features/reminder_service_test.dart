@@ -61,7 +61,7 @@ void main() {
       await service().reschedule();
       expect(scheduler.planned.length, 14); // 2 per day for 7 days
       expect(scheduler.planned.first.at, DateTime(2026, 5, 13, 10));
-      expect(scheduler.planned.first.title, 'Water break.');
+      expect(scheduler.planned.first.title, 'Time for some water.');
     });
 
     test('nothing is scheduled without notification permission', () async {
@@ -131,7 +131,7 @@ void main() {
       await service().reschedule();
       final p = ReminderPayload.decode(scheduler.planned.first.payload)!;
       expect(p.habitIds, [id]);
-      expect(p.snoozeCount, 0);
+      expect(p.habitNames, ['Water']);
     });
   });
 
@@ -230,12 +230,11 @@ void main() {
       expect(scheduler.testScheduled, isNull);
     });
 
-    test('a pending test survives rescheduling and is not a snooze', () async {
+    test('a pending test survives rescheduling', () async {
       await service().sendTest(delay: const Duration(minutes: 1));
       await addHabit();
       await service().reschedule();
       expect(scheduler.testScheduled, isNotNull);
-      expect(scheduler.snoozes, isEmpty);
       expect(scheduler.planned.length, 14);
     });
 
@@ -266,7 +265,7 @@ void main() {
       expect(u.diagnostics.enabled, isTrue);
     });
 
-    test('tapping Log or Snooze on a test does nothing', () async {
+    test('tapping Log or Skip on a test does nothing', () async {
       await service().sendTest();
       final payload = scheduler.shown.single.payload;
       await handleReminderAction(
@@ -277,14 +276,14 @@ void main() {
         scheduler: scheduler,
       );
       await handleReminderAction(
-        actionId: 'snooze',
+        actionId: 'skip',
         payload: payload,
         db: db,
         clock: clock,
         scheduler: scheduler,
       );
       expect(await db.select(db.habitLogs).get(), isEmpty);
-      expect(scheduler.snoozes, isEmpty);
+      expect(await db.select(db.habitSkips).get(), isEmpty);
     });
   });
 
@@ -324,50 +323,88 @@ void main() {
       );
     });
 
-    test('Snooze schedules one notification 30 minutes later', () async {
-      final (_, payload) = await setUpHabit();
-      await act('snooze', payload, at: DateTime.utc(2026, 5, 13, 10, 2));
-      expect(scheduler.snoozes.length, 1);
-      expect(scheduler.snoozes.single.at, DateTime(2026, 5, 13, 10, 32));
-      expect(
-        ReminderPayload.decode(scheduler.snoozes.single.payload)!.snoozeCount,
-        1,
+    Future<int> skips(String id) async =>
+        (await habits.skipsForDate(userId, '2026-05-13', habitId: id)).length;
+
+    Future<int> logged(String id) async => (await habits.logsBetween(
+      id,
+      '2026-05-13',
+      '2026-05-13',
+    )).fold<int>(0, (n, l) => n + l.count);
+
+    test('Skip records a skip and never a completion', () async {
+      final (id, payload) = await setUpHabit();
+      await act('skip', payload);
+      expect(await skips(id), 1);
+      expect(await logged(id), 0);
+    });
+
+    test('Skip does not count towards the target or change the plan', () async {
+      final (id, payload) = await setUpHabit(); // target 3
+      final before = scheduler.planned.length;
+      await act('skip', payload);
+      await act('skip', payload);
+      await act('skip', payload);
+      await act('skip', payload);
+      expect(await skips(id), 4);
+      expect(await logged(id), 0);
+      // Still not met: the rest of today's reminders are still planned.
+      await service().reschedule();
+      expect(scheduler.planned.length, before);
+      expect(scheduler.planned.any((n) => n.at.day == 13), isTrue);
+    });
+
+    test('Skip then Log: only the Log counts', () async {
+      final (id, payload) = await setUpHabit();
+      await act('skip', payload);
+      await act('log', payload);
+      expect(await skips(id), 1);
+      expect(await logged(id), 1);
+    });
+
+    test('Skip leaves other habits untouched', () async {
+      final (id, payload) = await setUpHabit();
+      final other = await addHabit(
+        name: 'Stand',
+        kind: HabitKind.stand,
+        times: [11 * 60],
       );
+      await act('skip', payload);
+      expect(await skips(id), 1);
+      expect(await skips(other), 0);
     });
 
-    test('snoozes stop after two', () async {
-      final (_, payload) = await setUpHabit();
-      var at = DateTime.utc(2026, 5, 13, 10, 2);
-      var current = payload;
-      for (var i = 0; i < 3; i++) {
-        await act('snooze', current, at: at);
-        if (scheduler.snoozes.length > i) {
-          current = scheduler.snoozes.last.payload;
-        }
-        at = at.add(const Duration(minutes: 31));
-      }
-      expect(scheduler.snoozes.length, 2);
+    test('Skip for a deleted habit does nothing', () async {
+      final (id, payload) = await setUpHabit();
+      await habits.delete(id);
+      await act('skip', payload);
+      expect(await db.select(db.habitSkips).get(), isEmpty);
     });
 
-    test('a snooze is dropped once the target is met', () async {
+    test('a dismissed reminder records nothing', () async {
+      final (id, payload) = await setUpHabit();
+      // Dismissing sends no action; a tap on the body has no action id.
+      await act(null, payload);
+      expect(await skips(id), 0);
+      expect(await logged(id), 0);
+      // The habit can still be logged in the app.
+      await habits.log(habit: (await habits.byId(id))!, dayCutoffMinutes: 0);
+      expect(await logged(id), 1);
+    });
+
+    test('the old Snooze action is ignored', () async {
       final (id, payload) = await setUpHabit();
       await act('snooze', payload, at: DateTime.utc(2026, 5, 13, 10, 2));
-      expect(scheduler.snoozes.length, 1);
-
-      final habit = (await habits.byId(id))!;
-      await habits.log(habit: habit, dayCutoffMinutes: 0, count: 3);
-      await service().reschedule();
-      expect(scheduler.snoozes, isEmpty);
+      expect(await skips(id), 0);
+      expect(await logged(id), 0);
+      expect(scheduler.scheduled.keys.every((k) => k < plannedIdLimit), isTrue);
     });
 
     test('a plain tap does nothing', () async {
       final (id, payload) = await setUpHabit();
       await act(null, payload);
-      expect(
-        (await habits.logsBetween(id, '2026-05-13', '2026-05-13')),
-        isEmpty,
-      );
-      expect(scheduler.snoozes, isEmpty);
+      expect(await logged(id), 0);
+      expect(await skips(id), 0);
     });
 
     test('a bad payload is ignored', () async {
@@ -375,26 +412,188 @@ void main() {
       expect(await db.select(db.habitLogs).get(), isEmpty);
     });
 
-    test('Log on a batched reminder logs every habit in it', () async {
-      final a = await addHabit(name: 'Water', times: [10 * 60]);
-      final b = await addHabit(
-        name: 'Stand',
-        kind: HabitKind.stand,
-        times: [10 * 60 + 5],
+    test(
+      'Log on one habit does not log another due at the same time',
+      () async {
+        final a = await addHabit(name: 'Water', times: [10 * 60]);
+        final b = await addHabit(
+          name: 'Stand',
+          kind: HabitKind.stand,
+          times: [10 * 60],
+        );
+        await service().reschedule();
+        final todays = scheduler.planned.where((n) => n.at.day == 13).toList();
+        expect(todays.length, 2); // two notifications, not one
+        final water = todays.firstWhere(
+          (n) => ReminderPayload.decode(n.payload)!.habitIds.single == a,
+        );
+        await act('log', water.payload);
+        expect(await logged(a), 1);
+        expect(await logged(b), 0);
+      },
+    );
+  });
+
+  group('separate notifications and settings', () {
+    test(
+      'each habit gets its own notification, even at the same time',
+      () async {
+        await addHabit(name: 'Water', times: [10 * 60]);
+        await addHabit(
+          name: 'Stand',
+          kind: HabitKind.stand,
+          times: [10 * 60 + 5],
+        );
+        await service().reschedule();
+        final today = scheduler.planned.where((n) => n.at.day == 13).toList();
+        expect(today.length, 2);
+        for (final n in today) {
+          expect(ReminderPayload.decode(n.payload)!.habitIds.length, 1);
+        }
+        expect(today.map((n) => n.title), [
+          'Time for some water.',
+          'Stand and move for a minute.',
+        ]);
+      },
+    );
+
+    test('hourly 12 to 5 is six notifications a day', () async {
+      await habits.create(
+        userId: userId,
+        name: 'Water',
+        kind: HabitKind.water,
+        dailyTarget: 6,
+        remindersEnabled: true,
+        reminderConfig: const ReminderConfig(
+          windowStart: 12 * 60,
+          windowEnd: 17 * 60,
+          everyMinutes: 60,
+        ).toJson(),
       );
       await service().reschedule();
-      final batched = scheduler.planned.first;
-      expect(ReminderPayload.decode(batched.payload)!.habitIds.length, 2);
+      final today = scheduler.planned.where((n) => n.at.day == 13);
+      expect(today.map((n) => n.at.hour), [12, 13, 14, 15, 16, 17]);
+    });
 
-      await act('log', batched.payload);
+    test('a reversed window schedules nothing', () async {
+      await habits.create(
+        userId: userId,
+        name: 'Water',
+        kind: HabitKind.water,
+        remindersEnabled: true,
+        reminderConfig: const ReminderConfig(
+          windowStart: 23 * 60,
+          windowEnd: 6 * 60,
+          everyMinutes: 60,
+        ).toJson(),
+      );
+      await service().reschedule();
+      expect(scheduler.planned, isEmpty);
+    });
+
+    test('quiet hours and the cap both apply to a repeating habit', () async {
+      await habits.create(
+        userId: userId,
+        name: 'Water',
+        kind: HabitKind.water,
+        remindersEnabled: true,
+        reminderConfig: const ReminderConfig(
+          windowStart: 8 * 60,
+          windowEnd: 20 * 60,
+          everyMinutes: 60,
+        ).toJson(),
+      );
+      await UserRepository(db, clock).update(
+        userId,
+        const UsersCompanion(
+          quietHoursStart: Value(12 * 60),
+          quietHoursEnd: Value(14 * 60),
+          dailyReminderCap: Value(3),
+        ),
+      );
+      await service().reschedule();
+      final today = scheduler.planned.where((n) => n.at.day == 13).toList();
+      expect(today.length, 3);
+      expect(today.every((n) => n.at.hour < 12 || n.at.hour >= 14), isTrue);
+    });
+
+    test('preferences survive revoked permission and resume after', () async {
+      final id = await addHabit();
+      scheduler.permitted = false;
+      await service().reschedule();
+      expect(scheduler.planned, isEmpty);
+      // The habit and its settings are untouched.
+      final h = (await habits.byId(id))!;
+      expect(h.remindersEnabled, isTrue);
+      expect(ReminderConfig.fromJson(h.reminderConfig).times, [600, 840]);
+      // Logging in the app still works.
+      await habits.log(habit: h, dayCutoffMinutes: 0);
       expect(
-        (await habits.logsBetween(a, '2026-05-13', '2026-05-13')).length,
+        (await habits.logsBetween(id, '2026-05-13', '2026-05-13')).length,
         1,
       );
-      expect(
-        (await habits.logsBetween(b, '2026-05-13', '2026-05-13')).length,
-        1,
+      // Permission comes back: a fresh service (as after a restart or boot)
+      // rebuilds everything from the stored preferences.
+      scheduler.permitted = true;
+      await ReminderService(
+        db: db,
+        clock: clock,
+        scheduler: scheduler,
+      ).reschedule();
+      expect(scheduler.planned.length, 14);
+    });
+
+    test('a preference change is picked up on the next reschedule', () async {
+      final id = await addHabit();
+      await service().reschedule();
+      expect(scheduler.planned.length, 14);
+      await habits.update(
+        id,
+        HabitsCompanion(
+          reminderConfig: Value(
+            const ReminderConfig(
+              mode: ReminderMode.times,
+              times: [11 * 60],
+            ).toJson(),
+          ),
+        ),
       );
+      await service().reschedule();
+      expect(scheduler.planned.length, 7);
+      expect(scheduler.planned.every((n) => n.at.hour == 11), isTrue);
+    });
+
+    test('the chosen reminder sound is passed to the scheduler', () async {
+      await addHabit();
+      await service().reschedule();
+      expect(scheduler.sound, isNull); // phone default
+      await UserRepository(db, clock).update(
+        userId,
+        const UsersCompanion(reminderSound: Value('content://media/chime')),
+      );
+      await service().reschedule();
+      expect(scheduler.sound, 'content://media/chime');
+      await UserRepository(
+        db,
+        clock,
+      ).update(userId, const UsersCompanion(reminderSound: Value(null)));
+      await service().reschedule();
+      expect(scheduler.sound, isNull);
+      expect(scheduler.soundChanges, 2);
+    });
+
+    test('hobby-range ids above the planned range are left alone', () async {
+      await scheduler.schedule(
+        ScheduledNotification(
+          id: plannedIdLimit + 10,
+          at: DateTime(2026, 5, 14, 9),
+          title: 'Hobby',
+          payload: '{}',
+        ),
+      );
+      await addHabit();
+      await service().reschedule();
+      expect(scheduler.scheduled.containsKey(plannedIdLimit + 10), isTrue);
     });
   });
 
@@ -404,11 +603,10 @@ void main() {
       habitNames: ['A', 'B'],
       kinds: ['water', 'stand'],
       priority: 1,
-      snoozeCount: 2,
     );
     final back = ReminderPayload.decode(p.encode())!;
     expect(back.habitIds, ['a', 'b']);
-    expect(back.snoozeCount, 2);
+    expect(back.habitNames, ['A', 'B']);
     expect(ReminderPayload.decode(null), isNull);
   });
 }

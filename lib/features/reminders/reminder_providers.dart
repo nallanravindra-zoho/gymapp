@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../habits/habit_providers.dart';
+import '../hobbies/hobby_providers.dart';
 import '../streaks/streak_providers.dart';
 import 'notification_scheduler.dart';
 import 'reminder_service.dart';
@@ -46,6 +47,7 @@ final reminderEffectsProvider = Provider<void>((ref) {
   ref.listen(activeHabitsProvider, (_, _) => run());
   ref.listen(todayHabitCountsProvider, (_, _) => run());
   ref.listen(userStreamProvider, (_, _) => run());
+  ref.listen(activeHobbiesProvider, (_, _) => run());
   run();
 });
 

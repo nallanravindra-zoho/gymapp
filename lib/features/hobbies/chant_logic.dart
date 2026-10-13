@@ -1,4 +1,8 @@
-/// Pure logic for the Om chanting counter (ported from the omchantcount app).
+/// Pure logic for Om chanting.
+///
+/// First release: a timer plus a manual counter (tap +1 for each chant). The
+/// microphone auto-count (ported from the omchantcount app) is an optional
+/// mode, off by default, switched on in the chant settings.
 library;
 
 /// How the reminder at each checkpoint is given.
@@ -35,7 +39,12 @@ class ChantSettings {
     this.interval = 27,
     this.mode = ReminderMode.voice,
     this.sensitivity,
+    this.micMode = false,
   });
+
+  /// Count chants by listening through the microphone instead of by tapping.
+  /// Off by default; the microphone is only asked for when this mode starts.
+  final bool micMode;
 
   /// Chants to count up to.
   final int target;
@@ -53,7 +62,9 @@ class ChantSettings {
     ReminderMode? mode,
     double? sensitivity,
     bool auto = false,
+    bool? micMode,
   }) => ChantSettings(
+    micMode: micMode ?? this.micMode,
     target: target ?? this.target,
     interval: interval ?? this.interval,
     mode: mode ?? this.mode,
@@ -65,6 +76,7 @@ class ChantSettings {
     'interval': interval,
     'mode': mode.name,
     'sensitivity': sensitivity,
+    'micMode': micMode,
   };
 
   static ChantSettings fromJson(Map<String, Object?> j) {
@@ -79,6 +91,7 @@ class ChantSettings {
         orElse: () => ReminderMode.voice,
       ),
       sensitivity: s is num ? s.toDouble() : null,
+      micMode: j['micMode'] == true,
     );
   }
 }
@@ -143,4 +156,42 @@ double calibratedThreshold(List<double> samples) {
       ? kSilenceDb
       : samples.reduce((a, b) => a > b ? a : b);
   return floor + kCalibrationMarginDb;
+}
+
+/// Time spent chanting: [accumulated] from earlier stretches plus the current
+/// stretch since [runningSince] (null while paused). Timestamp based, so it is
+/// right after the screen sleeps.
+Duration chantElapsed({
+  required Duration accumulated,
+  required DateTime? runningSince,
+  required DateTime now,
+}) {
+  if (runningSince == null) return accumulated;
+  final run = now.difference(runningSince);
+  return accumulated + (run.isNegative ? Duration.zero : run);
+}
+
+/// What a finished chanting session was.
+class ChantSummary {
+  const ChantSummary({
+    required this.count,
+    required this.target,
+    required this.elapsed,
+    required this.startedAt,
+    required this.endedAt,
+  });
+
+  final int count;
+  final int target;
+  final Duration elapsed;
+  final DateTime startedAt;
+  final DateTime endedAt;
+
+  bool get reachedTarget => count >= target;
+
+  /// Whole minutes, at least 1.
+  int get minutes {
+    final m = (elapsed.inSeconds / 60).round();
+    return m < 1 ? 1 : m;
+  }
 }

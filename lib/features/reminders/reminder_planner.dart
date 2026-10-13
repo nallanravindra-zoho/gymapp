@@ -5,12 +5,6 @@ const defaultQuietStart = 22 * 60;
 const defaultQuietEnd = 7 * 60;
 const defaultDailyCap = 6;
 
-/// Reminders this close together are sent as one notification.
-const batchWindow = Duration(minutes: 15);
-
-const snoozeDuration = Duration(minutes: 30);
-const maxSnoozes = 2;
-
 /// How many days ahead reminders are scheduled. They are rebuilt every time
 /// the app opens, so this only matters if the app goes unopened.
 const planningDays = 7;
@@ -42,7 +36,6 @@ class PlannedReminder {
     required this.habitNames,
     required this.kinds,
     required this.priority,
-    this.snoozeCount = 0,
   });
 
   /// Local wall-clock time.
@@ -51,7 +44,6 @@ class PlannedReminder {
   final List<String> habitNames;
   final List<String> kinds;
   final int priority;
-  final int snoozeCount;
 }
 
 /// True when [minuteOfDay] falls inside quiet hours. A window that crosses
@@ -63,14 +55,18 @@ bool inQuietHours(int minuteOfDay, int start, int end) {
       : minuteOfDay >= start || minuteOfDay < end;
 }
 
-/// Plans notifications for the next [days] days (spec 7.4):
+/// Plans notifications for the next [days] days (spec 7.4, R4):
 ///
 /// * only habits with reminders on (the caller passes only those),
 /// * only on the habit's active days,
 /// * never in quiet hours,
 /// * never for a habit whose target is already met today,
-/// * reminders within 15 minutes are batched into one,
+/// * one notification per habit per time, so each keeps its own Log and Skip
+///   actions (separate habits are never merged),
 /// * at most [cap] notifications per day; the lowest priority are dropped.
+///
+/// Skipping a reminder does not count towards a target, so a skip never
+/// changes what is planned here: only a met target suppresses reminders.
 List<PlannedReminder> planReminders({
   required List<HabitReminderInput> habits,
   required DateTime now,
@@ -84,7 +80,7 @@ List<PlannedReminder> planReminders({
 
   for (var offset = 0; offset < days; offset++) {
     final date = DateTime(now.year, now.month, now.day + offset);
-    final entries = <({DateTime at, HabitReminderInput habit})>[];
+    final day = <PlannedReminder>[];
 
     for (final h in habits) {
       if (!h.config.activeDays.contains(date.weekday)) continue;
@@ -93,36 +89,23 @@ List<PlannedReminder> planReminders({
         if (inQuietHours(m, quietStart, quietEnd)) continue;
         final at = DateTime(date.year, date.month, date.day, m ~/ 60, m % 60);
         if (!at.isAfter(now)) continue;
-        entries.add((at: at, habit: h));
+        day.add(
+          PlannedReminder(
+            at: at,
+            habitIds: [h.id],
+            habitNames: [h.name],
+            kinds: [h.kind],
+            priority: h.priority,
+          ),
+        );
       }
     }
-    entries.sort((a, b) => a.at.compareTo(b.at));
-
-    // Batch: a cluster starts at its first reminder and takes any others
-    // within the batch window of that start.
-    final day = <PlannedReminder>[];
-    var i = 0;
-    while (i < entries.length) {
-      final start = entries[i].at;
-      final group = <HabitReminderInput>[];
-      while (i < entries.length &&
-          entries[i].at.difference(start) <= batchWindow) {
-        if (!group.any((g) => g.id == entries[i].habit.id)) {
-          group.add(entries[i].habit);
-        }
-        i++;
-      }
-      group.sort((a, b) => a.priority.compareTo(b.priority));
-      day.add(
-        PlannedReminder(
-          at: start,
-          habitIds: [for (final g in group) g.id],
-          habitNames: [for (final g in group) g.name],
-          kinds: [for (final g in group) g.kind],
-          priority: group.first.priority,
-        ),
-      );
-    }
+    // Time order; habits due at the same minute stay separate, most
+    // important first.
+    day.sort((a, b) {
+      final t = a.at.compareTo(b.at);
+      return t != 0 ? t : a.priority.compareTo(b.priority);
+    });
 
     // Cap: keep the most important; among equals keep the earlier ones.
     if (day.length > cap) {
@@ -139,47 +122,20 @@ List<PlannedReminder> planReminders({
   return result;
 }
 
-/// The reminder to schedule after a snooze, or null when no snooze is
-/// allowed: two snoozes at most, none into quiet hours, none once every habit
-/// in it has met its target.
-PlannedReminder? planSnooze({
-  required PlannedReminder original,
-  required DateTime now,
-  required Set<String> metToday,
-  int quietStart = defaultQuietStart,
-  int quietEnd = defaultQuietEnd,
-}) {
-  if (original.snoozeCount >= maxSnoozes) return null;
-  final at = now.add(snoozeDuration);
-  if (inQuietHours(at.hour * 60 + at.minute, quietStart, quietEnd)) return null;
-
-  final keep = <int>[
-    for (var i = 0; i < original.habitIds.length; i++)
-      if (!metToday.contains(original.habitIds[i])) i,
-  ];
-  if (keep.isEmpty) return null;
-
-  return PlannedReminder(
-    at: at,
-    habitIds: [for (final i in keep) original.habitIds[i]],
-    habitNames: [for (final i in keep) original.habitNames[i]],
-    kinds: [for (final i in keep) original.kinds[i]],
-    priority: original.priority,
-    snoozeCount: original.snoozeCount + 1,
-  );
-}
-
-/// Notification wording (spec 4.5). Several batched habits share one title.
+/// Notification wording (spec 4.5). Every reminder is for one habit.
 ({String title, String? body}) reminderText(PlannedReminder r) {
   if (r.habitIds.length == 1) {
     return (title: _single(r.kinds.first, r.habitNames.first), body: null);
   }
-  return (title: 'Break time.', body: r.habitNames.join(', '));
+  // Only a hand-built payload carries several habits.
+  return (title: 'Healthy habits.', body: r.habitNames.join(', '));
 }
 
 String _single(String kind, String name) => switch (kind) {
-  'water' => 'Water break.',
+  'water' => 'Time for some water.',
   'stand' => 'Stand and move for a minute.',
-  'stretch' => 'Stretch break.',
+  'stretch' => 'Time for a stretch.',
+  'moisturize' => 'Time to moisturize.',
+  'skinCare' => 'Time for skin care.',
   _ => '$name.',
 };

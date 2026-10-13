@@ -168,4 +168,88 @@ class HabitRepository {
         ))
         .get();
   }
+
+  // --- skipped reminders ---------------------------------------------------
+  //
+  // A skip is its own record. It never touches HabitLogs, so it can never be
+  // counted towards a target or a streak.
+
+  /// Records that the person skipped a reminder for [habit]. Returns the id.
+  Future<String> recordSkip({
+    required Habit habit,
+    required int dayCutoffMinutes,
+    DateTime? at,
+  }) async {
+    final when = (at ?? _clock.now()).toUtc();
+    final offset = _clock.offsetAt(when);
+    final id = const Uuid().v4();
+    await _db
+        .into(_db.habitSkips)
+        .insert(
+          HabitSkipsCompanion.insert(
+            id: id,
+            createdAt: _clock.now(),
+            updatedAt: _clock.now(),
+            habitId: habit.id,
+            userId: habit.userId,
+            skippedAt: when,
+            tzOffsetMinutes: Value(offset),
+            localDate: localDateOf(
+              when,
+              offsetMinutes: offset,
+              cutoffMinutes: dayCutoffMinutes,
+            ),
+          ),
+        );
+    return id;
+  }
+
+  Future<void> deleteSkip(String id) =>
+      (_db.update(_db.habitSkips)..where((s) => s.id.equals(id))).write(
+        HabitSkipsCompanion(
+          deletedAt: Value(_clock.now()),
+          updatedAt: Value(_clock.now()),
+        ),
+      );
+
+  /// Skips on one local date, optionally for a single habit.
+  Future<List<HabitSkip>> skipsForDate(
+    String userId,
+    String localDate, {
+    String? habitId,
+  }) {
+    return (_db.select(_db.habitSkips)
+          ..where(
+            (s) =>
+                s.userId.equals(userId) &
+                s.localDate.equals(localDate) &
+                s.deletedAt.isNull() &
+                (habitId == null
+                    ? const Constant(true)
+                    : s.habitId.equals(habitId)),
+          )
+          ..orderBy([(s) => OrderingTerm.asc(s.skippedAt)]))
+        .get();
+  }
+
+  /// Skip counts per habit id on one local date.
+  Stream<Map<String, int>> watchSkipCountsForDate(
+    String userId,
+    String localDate,
+  ) {
+    return (_db.select(_db.habitSkips)..where(
+          (s) =>
+              s.userId.equals(userId) &
+              s.localDate.equals(localDate) &
+              s.deletedAt.isNull(),
+        ))
+        .watch()
+        .map((skips) {
+          final counts = <String, int>{};
+          for (final s in skips) {
+            counts[s.habitId] = (counts[s.habitId] ?? 0) + 1;
+          }
+          return counts;
+        });
+  }
 }

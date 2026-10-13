@@ -80,7 +80,22 @@ WeekScreenTime summarizeScreenTime(List<ScreenTimeDailyData> rows) {
   return WeekScreenTime(totalMinutes: total, daysWithData: days);
 }
 
-/// Daily goal choices in minutes (`null` clears the goal).
+/// Daily target choices in minutes (`null` clears the goal).
 const goalChoices = [120, 180, 240, 300, 360];
 
-String goalLabel(int minutes) => 'Goal ${formatScreenTime(minutes)}';
+String goalLabel(int minutes) => 'Target ${formatScreenTime(minutes)}';
+
+/// Whether a day stays within the user's daily limit: total at or below it.
+/// With no limit there is nothing to achieve, so this is false.
+bool withinTarget(int totalMinutes, int? targetMinutes) =>
+    targetMinutes != null && totalMinutes <= targetMinutes;
+
+/// Total minutes from hours and minutes typed by hand. Null when either is
+/// not a whole number, negative, or the total is not within one day.
+int? parseManualMinutes(String hours, String minutes) {
+  final h = hours.trim().isEmpty ? 0 : int.tryParse(hours.trim());
+  final m = minutes.trim().isEmpty ? 0 : int.tryParse(minutes.trim());
+  if (h == null || m == null || h < 0 || m < 0 || m > 59) return null;
+  final total = h * 60 + m;
+  return total > 1440 ? null : total;
+}

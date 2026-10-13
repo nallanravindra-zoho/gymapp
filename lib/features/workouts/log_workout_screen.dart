@@ -7,9 +7,11 @@ import '../../core/time/local_date.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../core/widgets/dialogs.dart';
 import '../../data/app_database.dart';
+import '../../data/builtin_workout_types.dart';
 import '../../data/providers.dart';
 import '../../data/tables/tables.dart';
 import 'timer_screen.dart';
+import 'workout_calc.dart';
 import 'workout_icons.dart';
 import 'workout_providers.dart';
 
@@ -57,6 +59,7 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
   late DateTime _end;
   WorkoutIntensity? _intensity;
   final _note = TextEditingController();
+  final _distance = TextEditingController();
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
@@ -72,6 +75,10 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
       _end = w.endedAt.toLocal();
       _intensity = w.intensity;
       _note.text = w.note ?? '';
+      if (w.distanceKm != null && w.metricsNote != 'estimated') {
+        _distance.text = '${w.distanceKm}';
+      }
+      _duration = w.durationMinutes < 1 ? 1 : w.durationMinutes;
       _manual = true;
     } else if (widget.forDate != null) {
       final d = parseLocalDate(widget.forDate!);
@@ -88,6 +95,7 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
   @override
   void dispose() {
     _note.dispose();
+    _distance.dispose();
     super.dispose();
   }
 
@@ -123,25 +131,42 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
   Future<void> _save(List<WorkoutType> types) async {
     final typeId = _typeId;
     if (typeId == null || _saving) return;
-    if (_manual && !_end.isAfter(_start)) {
+    if (!_end.isAfter(_start)) {
       _toast('End time must be after start time.');
       return;
     }
     setState(() => _saving = true);
 
-    final user = await ref.read(currentUserProvider.future);
+    final user = await ref.read(userRepositoryProvider).ensureUser();
     final repo = ref.read(workoutRepositoryProvider);
     final note = _note.text.trim();
 
-    DateTime start = _start, end = _end;
-    if (!_manual) {
-      end = ref.read(clockProvider).now();
-      start = end.subtract(Duration(minutes: _duration));
-    }
+    final DateTime start = _start, end = _end;
+    final type = types.where((x) => x.id == typeId).firstOrNull;
+    final existing = widget.existing;
+    final distance = double.tryParse(
+      _distance.text.trim().replaceAll(',', '.'),
+    );
+    final metrics = toWorkoutMetrics(
+      computeMetrics(
+        MetricInputs(
+          iconKey: type?.iconKey,
+          activeSeconds: end.difference(start).inSeconds,
+          pausedSeconds: existing?.pausedSeconds ?? 0,
+          intensity: _intensity?.name,
+          weightKg: user.weightKg,
+          heightCm: user.heightCm,
+          sensorSteps: existing?.stepsSource == 'sensor'
+              ? existing?.steps
+              : null,
+          enteredDistanceKm: distance,
+        ),
+      ),
+    );
 
     if (_editing) {
       await repo.update(
-        id: widget.existing!.id,
+        id: existing!.id,
         dayCutoffMinutes: user.dayCutoffMinutes,
         workoutTypeId: typeId,
         startedAt: start,
@@ -149,6 +174,7 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
         intensity: _intensity,
         clearIntensity: _intensity == null,
         note: note,
+        metrics: metrics,
       );
     } else {
       await repo.add(
@@ -157,9 +183,10 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
         workoutTypeId: typeId,
         startedAt: start,
         endedAt: end,
-        source: _manual ? WorkoutSource.manual : WorkoutSource.timer,
+        source: WorkoutSource.manual,
         intensity: _intensity,
         note: note.isEmpty ? null : note,
+        metrics: metrics,
       );
     }
 
@@ -186,7 +213,21 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
   Future<void> _startTimer() async {
     final typeId = _typeId;
     if (typeId == null) return;
-    await ref.read(activeTimerProvider.notifier).start(typeId);
+    final iconKey = ref
+        .read(workoutTypesProvider)
+        .value
+        ?.where((x) => x.id == typeId)
+        .firstOrNull
+        ?.iconKey;
+    final note = _note.text.trim();
+    await ref
+        .read(activeTimerProvider.notifier)
+        .start(
+          typeId,
+          iconKey: iconKey,
+          intensity: _intensity?.name,
+          note: note.isEmpty ? null : note,
+        );
     if (!mounted) return;
     final nav = Navigator.of(context);
     nav.pop();
@@ -215,6 +256,12 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
     });
   }
 
+  /// Keeps the duration chips in step with hand-edited start and end times.
+  void _syncDuration() {
+    final m = _end.difference(_start).inMinutes;
+    if (m > 0) _duration = m;
+  }
+
   void _setDuration(int m) => setState(() {
     _duration = m;
     // In manual mode the duration moves the end time, so the chips are a
@@ -229,7 +276,7 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
     // that type can still be opened and edited.
     final types = [
       for (final t in all)
-        if (t.id != 'builtin-other' || t.id == _typeId) t,
+        if (!retiredBuiltinTypeIds.contains(t.id) || t.id == _typeId) t,
     ];
     final t = context.tokens;
     final text = Theme.of(context).textTheme;
@@ -238,6 +285,10 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
     final cell = width / 4;
 
     final chips = <int>{15, 30, 45, 60, _duration}.toList()..sort();
+    final iconKey = types
+        .where((x) => x.id == _typeId)
+        .map((x) => x.iconKey)
+        .firstOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -281,7 +332,7 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
           const SizedBox(height: 18),
           const RowDivider(),
           const SizedBox(height: 16),
-          ...[
+          if (_manual) ...[
             Text('Duration', style: text.bodySmall?.copyWith(color: t.text)),
             const SizedBox(height: 10),
             Wrap(
@@ -301,15 +352,23 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
                 ),
               ],
             ),
-          ],
-          const SizedBox(height: 22),
-          if (_manual) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Choose a duration, or set the start and end times.',
+              style: text.bodySmall?.copyWith(color: t.textMuted),
+            ),
+            const SizedBox(height: 16),
             _TimeRow(
               label: 'Start',
               value: _start,
               onTap: () async {
                 final d = await _pick(_start);
-                if (d != null) setState(() => _start = d);
+                if (d != null) {
+                  setState(() {
+                    _start = d;
+                    _syncDuration();
+                  });
+                }
               },
             ),
             const RowDivider(),
@@ -318,32 +377,51 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
               value: _end,
               onTap: () async {
                 final d = await _pick(_end);
-                if (d != null) setState(() => _end = d);
+                if (d != null) {
+                  setState(() {
+                    _end = d;
+                    _syncDuration();
+                  });
+                }
               },
             ),
+            if (tracksDistance(iconKey)) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _distance,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Distance in km (optional)',
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
-            Text('Intensity (optional)', style: text.bodySmall),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              children: [
-                for (final i in WorkoutIntensity.values)
-                  _DurationChip(
-                    label: _intensityLabel(i),
-                    selected: _intensity == i,
-                    // Tapping the selected chip clears it: never required.
-                    onTap: () =>
-                        setState(() => _intensity = _intensity == i ? null : i),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _note,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'Note (optional)'),
-            ),
-            const SizedBox(height: 22),
+          ],
+          Text('Intensity (optional)', style: text.bodySmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            children: [
+              for (final i in WorkoutIntensity.values)
+                _DurationChip(
+                  label: _intensityLabel(i),
+                  selected: _intensity == i,
+                  // Tapping the selected chip clears it: never required.
+                  onTap: () =>
+                      setState(() => _intensity = _intensity == i ? null : i),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _note,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(hintText: 'Note (optional)'),
+          ),
+          const SizedBox(height: 22),
+          if (_manual) ...[
             FilledButton(
               onPressed: _typeId == null || _saving ? null : () => _save(types),
               child: const Text('Save'),

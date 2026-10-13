@@ -128,3 +128,7 @@ String sleepLoggedMessage(int minutes) =>
 
 String consistencyLabel(SleepConsistency c) =>
     '${c.onSchedule} of ${c.days} days on schedule.';
+
+/// Shown on the Sleep screen and in every day summary so the date rule is
+/// never a surprise (R6): a night belongs to the local date of waking.
+const sleepDateCaption = 'Sleep is counted on the day you wake up';

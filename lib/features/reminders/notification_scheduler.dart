@@ -2,12 +2,17 @@ import 'dart:convert';
 
 import 'reminder_planner.dart';
 
-/// Ids below this are planned reminders; ids at or above it are snoozes.
-/// Rescheduling replaces the planned range and leaves snoozes alone.
+/// Ids from [plannedIdBase] up to (not including) [plannedIdLimit] are
+/// planned habit reminders. Rescheduling replaces that range and leaves ids at
+/// or above the limit (such as the test reminder) alone.
 const plannedIdBase = 1000;
-const snoozeIdBase = 900000;
+const plannedIdLimit = 900000;
 
-/// The test reminder. Above the snooze range so rescheduling leaves it alone.
+/// Former name of [plannedIdLimit], from when snoozes lived above it. Snooze
+/// was removed in R4; kept so older references still compile.
+const snoozeIdBase = plannedIdLimit;
+
+/// The test reminder. Above the planned range so rescheduling leaves it alone.
 const testNotificationId = 999999;
 
 class ScheduledNotification {
@@ -65,7 +70,13 @@ abstract class NotificationScheduler {
   /// Asks the user (Android 13+). Returns whether notifications are allowed.
   Future<bool> requestPermission();
 
-  /// Cancels planned reminders (ids below [snoozeIdBase]).
+  /// Chooses the notification sound ([Users.reminderSound]; null means the
+  /// phone's default). Android fixes a channel's sound when it is created, so
+  /// the Android implementation uses a channel per sound and removes the old
+  /// ones. Call before scheduling.
+  Future<void> useSound(String? sound);
+
+  /// Cancels planned reminders (ids below [plannedIdLimit]).
   Future<void> cancelPlanned();
 
   Future<void> cancel(int id);
@@ -87,6 +98,8 @@ class NoopNotificationScheduler implements NotificationScheduler {
   Future<bool> hasPermission() async => false;
   @override
   Future<bool> requestPermission() async => false;
+  @override
+  Future<void> useSound(String? sound) async {}
   @override
   Future<void> cancelPlanned() async {}
   @override
@@ -126,9 +139,19 @@ class FakeNotificationScheduler implements NotificationScheduler {
     return permitted;
   }
 
+  /// The sound last passed to [useSound] (null = phone default).
+  String? sound;
+  int soundChanges = 0;
+
+  @override
+  Future<void> useSound(String? sound) async {
+    if (sound != this.sound) soundChanges++;
+    this.sound = sound;
+  }
+
   @override
   Future<void> cancelPlanned() async =>
-      scheduled.removeWhere((id, _) => id < snoozeIdBase);
+      scheduled.removeWhere((id, _) => id < plannedIdLimit);
 
   @override
   Future<void> cancel(int id) async => scheduled.remove(id);
@@ -175,25 +198,21 @@ class FakeNotificationScheduler implements NotificationScheduler {
   ];
 
   List<ScheduledNotification> get planned =>
-      scheduled.values.where((n) => n.id < snoozeIdBase).toList()
+      scheduled.values.where((n) => n.id < plannedIdLimit).toList()
         ..sort((a, b) => a.at.compareTo(b.at));
-
-  List<ScheduledNotification> get snoozes => scheduled.values
-      .where((n) => n.id >= snoozeIdBase && n.id != testNotificationId)
-      .toList();
 
   /// The scheduled test reminder, if one is pending.
   ScheduledNotification? get testScheduled => scheduled[testNotificationId];
 }
 
-/// What a notification carries so its actions know what to log or snooze.
+/// What a notification carries so its Log and Skip actions know which habit they are for.
 class ReminderPayload {
   const ReminderPayload({
     required this.habitIds,
     required this.habitNames,
     required this.kinds,
     required this.priority,
-    required this.snoozeCount,
+    this.snoozeCount = 0,
   });
 
   factory ReminderPayload.fromPlanned(PlannedReminder r) => ReminderPayload(
@@ -201,22 +220,18 @@ class ReminderPayload {
     habitNames: r.habitNames,
     kinds: r.kinds,
     priority: r.priority,
-    snoozeCount: r.snoozeCount,
   );
 
   final List<String> habitIds;
   final List<String> habitNames;
   final List<String> kinds;
   final int priority;
+
+  /// Unused since snooze was removed; accepted so older callers compile.
   final int snoozeCount;
 
-  String encode() => jsonEncode({
-    'h': habitIds,
-    'n': habitNames,
-    'k': kinds,
-    'p': priority,
-    's': snoozeCount,
-  });
+  String encode() =>
+      jsonEncode({'h': habitIds, 'n': habitNames, 'k': kinds, 'p': priority});
 
   static ReminderPayload? decode(String? raw) {
     if (raw == null) return null;
@@ -227,7 +242,6 @@ class ReminderPayload {
         habitNames: List<String>.from(m['n'] as List),
         kinds: List<String>.from(m['k'] as List),
         priority: m['p'] as int,
-        snoozeCount: m['s'] as int,
       );
     } catch (_) {
       return null;
@@ -240,6 +254,5 @@ class ReminderPayload {
     habitNames: habitNames,
     kinds: kinds,
     priority: priority,
-    snoozeCount: snoozeCount,
   );
 }

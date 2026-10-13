@@ -5,6 +5,9 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wellbeing/core/time/app_clock.dart';
 import 'package:wellbeing/data/app_database.dart';
+import 'package:wellbeing/data/repositories/body_measurement_repository.dart';
+import 'package:wellbeing/data/repositories/habit_repository.dart';
+import 'package:wellbeing/data/repositories/hobby_repository.dart';
 import 'package:wellbeing/data/repositories/user_repository.dart';
 import 'package:wellbeing/data/repositories/workout_repository.dart';
 import 'package:wellbeing/data/tables/tables.dart';
@@ -129,6 +132,10 @@ void main() {
         'customWorkoutTypes',
         'habits',
         'habitLogs',
+        'habitSkips',
+        'hobbies',
+        'hobbyLogs',
+        'bodyMeasurements',
         'sleepTargets',
         'sleepLogs',
         'restDays',
@@ -138,6 +145,61 @@ void main() {
         expect(json[key], isA<List>(), reason: key);
       }
     });
+
+    test(
+      'hobbies, measurements and skips are exported, deleted ones not',
+      () async {
+        final clock = FixedClock(now);
+        final hobbies = HobbyRepository(db, clock);
+        final hobby = await hobbies.addCustom(userId: userId, name: 'Pottery');
+        final gone = await hobbies.addCustom(userId: userId, name: 'Gone');
+        await hobbies.delete(gone);
+        await hobbies.addLog(
+          userId: userId,
+          hobbyId: hobby,
+          dayCutoffMinutes: 0,
+          source: HobbyLogSource.manual,
+          startedAt: now,
+          durationMinutes: 40,
+        );
+        final measurements = BodyMeasurementRepository(db, clock);
+        await measurements.add(
+          userId: userId,
+          dayCutoffMinutes: 0,
+          weightKg: 70,
+          waistIn: 32,
+        );
+        final habits = HabitRepository(db, clock);
+        final habitId = await habits.create(
+          userId: userId,
+          name: 'Water',
+          kind: HabitKind.water,
+        );
+        await habits.recordSkip(
+          habit: (await habits.byId(habitId))!,
+          dayCutoffMinutes: 0,
+        );
+
+        final json = jsonDecode(
+          (await buildJsonExport(db, now)).content,
+        ) as Map<String, dynamic>;
+        expect(json['exportVersion'], 2);
+        expect((json['hobbies'] as List).map((h) => (h as Map)['name']), [
+          'Pottery',
+        ]);
+        expect(
+          ((json['hobbyLogs'] as List).single as Map)['durationMinutes'],
+          40,
+        );
+        final m = (json['bodyMeasurements'] as List).single as Map;
+        expect(m['weightKg'], 70);
+        expect(m['waistIn'], 32);
+        expect(m['hipsIn'], isNull);
+        expect(m['measuredAt'], '2026-05-13T10:00:00.000Z');
+        expect((json['habitSkips'] as List), hasLength(1));
+        expect((json['habitLogs'] as List), isEmpty);
+      },
+    );
 
     test('built-in workout types are not exported as custom ones', () async {
       final json = jsonDecode(

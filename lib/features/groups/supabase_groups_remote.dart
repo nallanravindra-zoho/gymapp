@@ -47,11 +47,18 @@ class SupabaseGroupsRemote implements GroupsRemote {
   });
 
   @override
-  Future<Group> createGroup(String name) => _run(() async {
-    final row = await _client.rpc('create_group', params: {'p_name': name});
-    return _group(Map<String, Object?>.from(row as Map))
-        .copyWith(memberCount: 1);
-  });
+  Future<Group> createGroup(String name, {GroupSharing? sharing}) =>
+      _run(() async {
+        final row = await _client.rpc(
+          'create_group',
+          params: {
+            'p_name': name,
+            if (sharing != null) 'p_share': sharing.toJson(),
+          },
+        );
+        return _group(Map<String, Object?>.from(row as Map))
+            .copyWith(memberCount: 1);
+      });
 
   @override
   Future<InvitePreview> previewInvite(String code) => _run(() async {
@@ -69,12 +76,20 @@ class SupabaseGroupsRemote implements GroupsRemote {
   });
 
   @override
-  Future<String> joinGroup(String code) => _run(() async {
-    final id = await _client.rpc('join_group', params: {'p_code': code});
-    // A wrong code returns nothing (the server records the attempt).
-    if (id == null) throw const GroupsException(GroupsProblem.inviteNotFound);
-    return id as String;
-  });
+  Future<String> joinGroup(String code, {GroupSharing? sharing}) => _run(
+    () async {
+      final id = await _client.rpc(
+        'join_group',
+        params: {
+          'p_code': code,
+          if (sharing != null) 'p_share': sharing.toJson(),
+        },
+      );
+      // A wrong code returns nothing (the server records the attempt).
+      if (id == null) throw const GroupsException(GroupsProblem.inviteNotFound);
+      return id as String;
+    },
+  );
 
   @override
   Future<List<GroupMember>> roster(String groupId) => _run(() async {
@@ -122,6 +137,86 @@ class SupabaseGroupsRemote implements GroupsRemote {
   });
 
   @override
+  Future<Set<GroupTab>> availableTabs(String groupId, String weekStart) =>
+      _run(() async {
+        final rows = await _client.rpc(
+          'group_available_categories',
+          params: {'p_group_id': groupId, 'p_week_start': weekStart},
+        );
+        return {
+          for (final r in rows as List)
+            ?GroupTab.fromWire((r as Map)['category'] as String?),
+        };
+      });
+
+  @override
+  Future<List<OverallEntry>> overallBoard(String groupId, String weekStart) =>
+      _run(() async {
+        final rows = await _client.rpc(
+          'group_overall_board',
+          params: {'p_group_id': groupId, 'p_week_start': weekStart},
+        );
+        return [
+          for (final r in rows as List)
+            OverallEntry(
+              userId: (r as Map)['user_id'] as String,
+              displayName: r['display_name'] as String? ?? '',
+              rank: (r['rank'] as num).toInt(),
+              categories: [
+                for (final c in (r['categories'] as List?) ?? const [])
+                  ?GroupCategory.fromWire(c as String?),
+              ],
+            ),
+        ];
+      });
+
+  @override
+  Future<List<CategoryEntry>> categoryBoard(
+    String groupId,
+    String weekStart,
+    GroupCategory category,
+  ) => _run(() async {
+    final rows = await _client.rpc(
+      'group_category_board',
+      params: {
+        'p_group_id': groupId,
+        'p_week_start': weekStart,
+        'p_category': category.wire,
+      },
+    );
+    return [
+      for (final r in rows as List)
+        CategoryEntry(
+          userId: (r as Map)['user_id'] as String,
+          displayName: r['display_name'] as String? ?? '',
+          rank: (r['rank'] as num).toInt(),
+          metrics: Map<String, Object?>.from(
+            (r['metrics'] as Map?) ?? const {},
+          ),
+        ),
+    ];
+  });
+
+  @override
+  Future<ParticipantMetrics?> memberMetrics(
+    String groupId,
+    String userId,
+    String weekStart,
+    GroupCategory category,
+  ) => _run(() async {
+    final raw = await _client.rpc(
+      'group_member_metrics',
+      params: {
+        'p_group_id': groupId,
+        'p_user_id': userId,
+        'p_week_start': weekStart,
+        'p_category': category.wire,
+      },
+    );
+    return parseMemberMetrics(raw);
+  });
+
+  @override
   Future<void> setCheer(String eventId, {required bool cheered}) =>
       _run(() async {
         final me = _me;
@@ -144,19 +239,28 @@ class SupabaseGroupsRemote implements GroupsRemote {
       });
 
   @override
-  Future<void> setSharing(String groupId, {bool? workouts, bool? breaks}) =>
-      _run(() async {
-        final changes = <String, Object?>{
-          'share_workouts': ?workouts,
-          'share_breaks': ?breaks,
-        };
-        if (changes.isEmpty) return;
-        await _client
-            .from('group_members')
-            .update(changes)
-            .eq('group_id', groupId)
-            .eq('user_id', _me);
-      });
+  Future<void> setSharing(
+    String groupId, {
+    bool? workouts,
+    bool? breaks,
+    bool? sleep,
+    bool? screenTime,
+    bool? hobbies,
+  }) => _run(() async {
+    final changes = <String, Object?>{
+      'share_workouts': ?workouts,
+      'share_breaks': ?breaks,
+      'share_sleep': ?sleep,
+      'share_screen_time': ?screenTime,
+      'share_hobbies': ?hobbies,
+    };
+    if (changes.isEmpty) return;
+    await _client
+        .from('group_members')
+        .update(changes)
+        .eq('group_id', groupId)
+        .eq('user_id', _me);
+  });
 
   @override
   Future<void> rename(String groupId, String name) => _run(() async {
@@ -213,7 +317,28 @@ GroupMember _member(Map<String, Object?> r) => GroupMember(
   joinedAt: DateTime.parse(r['joined_at'] as String),
   shareWorkouts: r['share_workouts'] as bool,
   shareBreaks: r['share_breaks'] as bool,
+  // Absent on a server that has not had the categories migration yet.
+  shareSleep: r['share_sleep'] as bool? ?? false,
+  shareScreenTime: r['share_screen_time'] as bool? ?? false,
+  shareHobbies: r['share_hobbies'] as bool? ?? false,
 );
+
+/// Reads the server's `group_member_metrics` result. Visible for tests.
+ParticipantMetrics? parseMemberMetrics(Object? raw) {
+  if (raw is! Map) return null;
+  final summary = raw['summary'];
+  if (summary is! Map) return null;
+  return ParticipantMetrics(
+    summary: Map<String, Object?>.from(summary),
+    days: [
+      for (final d in (raw['days'] as List?) ?? const [])
+        (
+          date: (d as Map)['date'] as String,
+          amount: (d['amount'] as num?) ?? 0,
+        ),
+    ],
+  );
+}
 
 GroupEvent _event(Map<String, Object?> r) {
   final reactions = (r['reactions'] as List?) ?? const [];

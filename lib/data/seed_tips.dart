@@ -113,3 +113,65 @@ const seedTips = <SeedTip>[
     'Choosing a time to stop using screens each evening is easier to follow than deciding each night.',
   ),
 ];
+
+// --- Healthy Habits recommendation cards (R4) --------------------------------
+
+/// The sentence every habit recommendation card must end with.
+const recommendationDisclaimer =
+    'General wellness information only; not medical advice.';
+
+/// A general, non-prescriptive suggestion shown on the Healthy Habits screen.
+///
+/// The source is kept here, in the tip library, with its link. Cards make no
+/// personalised medical claims and give no fixed amounts of water.
+class HabitRecommendation {
+  const HabitRecommendation({
+    required this.id,
+    required this.habitKind,
+    required this.title,
+    required this.text,
+    required this.sourceLabel,
+    required this.sourceUrl,
+  });
+
+  final String id;
+
+  /// The [HabitKind] name this card is about: `water`, `stand` or `stretch`.
+  final String habitKind;
+  final String title;
+
+  /// Ends with [recommendationDisclaimer].
+  final String text;
+  final String sourceLabel;
+  final String sourceUrl;
+}
+
+const habitRecommendations = <HabitRecommendation>[
+  HabitRecommendation(
+    id: 'rec-water-1',
+    habitKind: 'water',
+    title: 'Drink water regularly',
+    text:
+        'Sipping water regularly through the day is a simple habit, and a glass within reach can make it easier. $recommendationDisclaimer',
+    sourceLabel: 'NHS: Water, drinks and hydration',
+    sourceUrl: 'https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/water-drinks-nutrition/',
+  ),
+  HabitRecommendation(
+    id: 'rec-stand-1',
+    habitKind: 'stand',
+    title: 'Break up long sitting',
+    text:
+        'If you sit for long stretches, a short, gentle movement break now and then is an easy way to change position. $recommendationDisclaimer',
+    sourceLabel: 'Mayo Clinic: Sitting risks and movement',
+    sourceUrl: 'https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/sitting/art-20043914',
+  ),
+  HabitRecommendation(
+    id: 'rec-stretch-1',
+    habitKind: 'stretch',
+    title: 'Stretch when you have been sitting',
+    text:
+        'A gentle stretch during a long spell of sitting can be a calm way to take a break. Move at a comfortable pace. $recommendationDisclaimer',
+    sourceLabel: 'Mayo Clinic: Sitting risks and movement',
+    sourceUrl: 'https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/sitting/art-20043914',
+  ),
+];
