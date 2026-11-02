@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wellbeing/core/widgets/app_widgets.dart';
 
 /// Taps the Today quick-log tile (the first widget labelled [label]; the
 /// summary card below repeats some of these names).
@@ -50,11 +51,18 @@ Future<void> logToday(WidgetTester tester, String type) async {
   await tester.pumpAndSettle();
 }
 
-/// Switches to the Week tab.
+/// Switches to the Goals destination and its Week tab.
 Future<void> openWeekTab(WidgetTester tester) async {
   await tester.tap(
     find.descendant(
       of: find.byType(NavigationBar),
+      matching: find.text('Goals'),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.descendant(
+      of: find.byWidgetPredicate((w) => w is PillTabs),
       matching: find.text('Week'),
     ),
   );

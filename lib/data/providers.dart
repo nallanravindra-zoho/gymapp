@@ -6,6 +6,7 @@ import 'repositories/badge_repository.dart';
 import 'repositories/body_measurement_repository.dart';
 import 'repositories/habit_repository.dart';
 import 'repositories/hobby_repository.dart';
+import 'repositories/meditation_repository.dart';
 import 'repositories/rest_day_repository.dart';
 import 'repositories/screen_time_repository.dart';
 import 'repositories/sleep_repository.dart';
@@ -36,6 +37,12 @@ final habitRepositoryProvider = Provider(
 final hobbyRepositoryProvider = Provider(
   (ref) =>
       HobbyRepository(ref.watch(databaseProvider), ref.watch(clockProvider)),
+);
+final meditationRepositoryProvider = Provider(
+  (ref) => MeditationRepository(
+    ref.watch(databaseProvider),
+    ref.watch(clockProvider),
+  ),
 );
 final bodyMeasurementRepositoryProvider = Provider(
   (ref) => BodyMeasurementRepository(

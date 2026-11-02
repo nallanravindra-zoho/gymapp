@@ -39,7 +39,10 @@ void openDaySummary(BuildContext context, String localDate) {
 }
 
 class WeekScreen extends ConsumerWidget {
-  const WeekScreen({super.key});
+  /// [embedded] drops the title bar, for use inside the Goals tab.
+  const WeekScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,12 +61,14 @@ class WeekScreen extends ConsumerWidget {
       ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Padding(
-          padding: EdgeInsets.only(left: 20),
-          child: Text('Week'),
-        ),
-      ),
+      appBar: embedded
+          ? null
+          : AppBar(
+              title: const Padding(
+                padding: EdgeInsets.only(left: 20),
+                child: Text('Week'),
+              ),
+            ),
       body: weekStart == null
           ? const SizedBox.shrink()
           : ListView(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/tokens.dart';
+import '../goals/goal_progress_screen.dart';
 import '../../core/time/local_date.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/app_database.dart';
@@ -65,6 +66,10 @@ class InsightsScreen extends ConsumerWidget {
                 MediaQuery.paddingOf(context).bottom + 24,
               ),
               children: [
+                Text('Goals', style: text.titleMedium),
+                const SizedBox(height: 12),
+                const GoalProgressView(),
+                const SizedBox(height: 28),
                 PillTabs<InsightWeek>(
                   outlined: true,
                   options: const {

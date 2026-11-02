@@ -9,7 +9,7 @@ void main() {
     tester,
     db,
   ) async {
-    for (final label in ['Today', 'Week', 'Groups', 'Insights', 'Chat']) {
+    for (final label in ['Home', 'Goals', 'Groups', 'Insights', 'Chat']) {
       expect(find.text(label), findsWidgets);
     }
     await tester.tap(find.byIcon(Icons.groups_outlined));

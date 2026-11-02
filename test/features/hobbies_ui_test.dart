@@ -259,6 +259,30 @@ void main() {
     expect(find.textContaining('day goal streak'), findsNothing);
   });
 
+  appTest('every 2 weeks and once a month are labelled apart', (
+    tester,
+    db,
+  ) async {
+    await openHobbies(tester);
+    await openManageHobbies(tester);
+    await tester.tap(find.text('Music'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reminder'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Every 2 weeks'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('not twice a month'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Once a month'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('one reminder on the chosen day'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('not twice a month'), findsNothing);
+  });
+
   appTest('a hobby reminder is scheduled, and turned off again', (
     tester,
     db,

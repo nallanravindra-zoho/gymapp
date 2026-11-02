@@ -340,6 +340,12 @@ void main() {
       );
       await tester.tap(find.byIcon(Icons.lightbulb_outline_rounded));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Metrics'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Metrics'));
       await tester.pumpAndSettle();
       expect(find.text('Weight'), findsOneWidget);
@@ -376,6 +382,12 @@ void main() {
 
     appTest('empty charts explain themselves', (tester, db) async {
       await tester.tap(find.byIcon(Icons.lightbulb_outline_rounded));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Metrics'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Metrics'));
       await tester.pumpAndSettle();

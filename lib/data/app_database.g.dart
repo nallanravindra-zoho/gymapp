@@ -6582,6 +6582,676 @@ class HobbyLogsCompanion extends UpdateCompanion<HobbyLog> {
   }
 }
 
+class $MeditationSessionsTable extends MeditationSessions
+    with TableInfo<$MeditationSessionsTable, MeditationSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MeditationSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _plannedMinutesMeta = const VerificationMeta(
+    'plannedMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> plannedMinutes = GeneratedColumn<int>(
+    'planned_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completedMeta = const VerificationMeta(
+    'completed',
+  );
+  @override
+  late final GeneratedColumn<bool> completed = GeneratedColumn<bool>(
+    'completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("completed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _tzOffsetMinutesMeta = const VerificationMeta(
+    'tzOffsetMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> tzOffsetMinutes = GeneratedColumn<int>(
+    'tz_offset_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _localDateMeta = const VerificationMeta(
+    'localDate',
+  );
+  @override
+  late final GeneratedColumn<String> localDate = GeneratedColumn<String>(
+    'local_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    userId,
+    startedAt,
+    plannedMinutes,
+    durationSeconds,
+    completed,
+    tzOffsetMinutes,
+    localDate,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'meditation_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MeditationSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('planned_minutes')) {
+      context.handle(
+        _plannedMinutesMeta,
+        plannedMinutes.isAcceptableOrUnknown(
+          data['planned_minutes']!,
+          _plannedMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_plannedMinutesMeta);
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('completed')) {
+      context.handle(
+        _completedMeta,
+        completed.isAcceptableOrUnknown(data['completed']!, _completedMeta),
+      );
+    }
+    if (data.containsKey('tz_offset_minutes')) {
+      context.handle(
+        _tzOffsetMinutesMeta,
+        tzOffsetMinutes.isAcceptableOrUnknown(
+          data['tz_offset_minutes']!,
+          _tzOffsetMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('local_date')) {
+      context.handle(
+        _localDateMeta,
+        localDate.isAcceptableOrUnknown(data['local_date']!, _localDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localDateMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MeditationSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MeditationSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      plannedMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}planned_minutes'],
+      )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      completed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}completed'],
+      )!,
+      tzOffsetMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tz_offset_minutes'],
+      )!,
+      localDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_date'],
+      )!,
+    );
+  }
+
+  @override
+  $MeditationSessionsTable createAlias(String alias) {
+    return $MeditationSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class MeditationSession extends DataClass
+    implements Insertable<MeditationSession> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final String userId;
+  final DateTime startedAt;
+  final int plannedMinutes;
+  final int durationSeconds;
+  final bool completed;
+  final int tzOffsetMinutes;
+  final String localDate;
+  const MeditationSession({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.userId,
+    required this.startedAt,
+    required this.plannedMinutes,
+    required this.durationSeconds,
+    required this.completed,
+    required this.tzOffsetMinutes,
+    required this.localDate,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['user_id'] = Variable<String>(userId);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    map['planned_minutes'] = Variable<int>(plannedMinutes);
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['completed'] = Variable<bool>(completed);
+    map['tz_offset_minutes'] = Variable<int>(tzOffsetMinutes);
+    map['local_date'] = Variable<String>(localDate);
+    return map;
+  }
+
+  MeditationSessionsCompanion toCompanion(bool nullToAbsent) {
+    return MeditationSessionsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      userId: Value(userId),
+      startedAt: Value(startedAt),
+      plannedMinutes: Value(plannedMinutes),
+      durationSeconds: Value(durationSeconds),
+      completed: Value(completed),
+      tzOffsetMinutes: Value(tzOffsetMinutes),
+      localDate: Value(localDate),
+    );
+  }
+
+  factory MeditationSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MeditationSession(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      userId: serializer.fromJson<String>(json['userId']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      plannedMinutes: serializer.fromJson<int>(json['plannedMinutes']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      completed: serializer.fromJson<bool>(json['completed']),
+      tzOffsetMinutes: serializer.fromJson<int>(json['tzOffsetMinutes']),
+      localDate: serializer.fromJson<String>(json['localDate']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'userId': serializer.toJson<String>(userId),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'plannedMinutes': serializer.toJson<int>(plannedMinutes),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'completed': serializer.toJson<bool>(completed),
+      'tzOffsetMinutes': serializer.toJson<int>(tzOffsetMinutes),
+      'localDate': serializer.toJson<String>(localDate),
+    };
+  }
+
+  MeditationSession copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    String? userId,
+    DateTime? startedAt,
+    int? plannedMinutes,
+    int? durationSeconds,
+    bool? completed,
+    int? tzOffsetMinutes,
+    String? localDate,
+  }) => MeditationSession(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    userId: userId ?? this.userId,
+    startedAt: startedAt ?? this.startedAt,
+    plannedMinutes: plannedMinutes ?? this.plannedMinutes,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    completed: completed ?? this.completed,
+    tzOffsetMinutes: tzOffsetMinutes ?? this.tzOffsetMinutes,
+    localDate: localDate ?? this.localDate,
+  );
+  MeditationSession copyWithCompanion(MeditationSessionsCompanion data) {
+    return MeditationSession(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      plannedMinutes: data.plannedMinutes.present
+          ? data.plannedMinutes.value
+          : this.plannedMinutes,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      completed: data.completed.present ? data.completed.value : this.completed,
+      tzOffsetMinutes: data.tzOffsetMinutes.present
+          ? data.tzOffsetMinutes.value
+          : this.tzOffsetMinutes,
+      localDate: data.localDate.present ? data.localDate.value : this.localDate,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MeditationSession(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('userId: $userId, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('plannedMinutes: $plannedMinutes, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('completed: $completed, ')
+          ..write('tzOffsetMinutes: $tzOffsetMinutes, ')
+          ..write('localDate: $localDate')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    userId,
+    startedAt,
+    plannedMinutes,
+    durationSeconds,
+    completed,
+    tzOffsetMinutes,
+    localDate,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MeditationSession &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.userId == this.userId &&
+          other.startedAt == this.startedAt &&
+          other.plannedMinutes == this.plannedMinutes &&
+          other.durationSeconds == this.durationSeconds &&
+          other.completed == this.completed &&
+          other.tzOffsetMinutes == this.tzOffsetMinutes &&
+          other.localDate == this.localDate);
+}
+
+class MeditationSessionsCompanion extends UpdateCompanion<MeditationSession> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> userId;
+  final Value<DateTime> startedAt;
+  final Value<int> plannedMinutes;
+  final Value<int> durationSeconds;
+  final Value<bool> completed;
+  final Value<int> tzOffsetMinutes;
+  final Value<String> localDate;
+  final Value<int> rowid;
+  const MeditationSessionsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.plannedMinutes = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.completed = const Value.absent(),
+    this.tzOffsetMinutes = const Value.absent(),
+    this.localDate = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MeditationSessionsCompanion.insert({
+    required String id,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    required String userId,
+    required DateTime startedAt,
+    required int plannedMinutes,
+    required int durationSeconds,
+    this.completed = const Value.absent(),
+    this.tzOffsetMinutes = const Value.absent(),
+    required String localDate,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       userId = Value(userId),
+       startedAt = Value(startedAt),
+       plannedMinutes = Value(plannedMinutes),
+       durationSeconds = Value(durationSeconds),
+       localDate = Value(localDate);
+  static Insertable<MeditationSession> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? userId,
+    Expression<DateTime>? startedAt,
+    Expression<int>? plannedMinutes,
+    Expression<int>? durationSeconds,
+    Expression<bool>? completed,
+    Expression<int>? tzOffsetMinutes,
+    Expression<String>? localDate,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (userId != null) 'user_id': userId,
+      if (startedAt != null) 'started_at': startedAt,
+      if (plannedMinutes != null) 'planned_minutes': plannedMinutes,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (completed != null) 'completed': completed,
+      if (tzOffsetMinutes != null) 'tz_offset_minutes': tzOffsetMinutes,
+      if (localDate != null) 'local_date': localDate,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MeditationSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String>? userId,
+    Value<DateTime>? startedAt,
+    Value<int>? plannedMinutes,
+    Value<int>? durationSeconds,
+    Value<bool>? completed,
+    Value<int>? tzOffsetMinutes,
+    Value<String>? localDate,
+    Value<int>? rowid,
+  }) {
+    return MeditationSessionsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      userId: userId ?? this.userId,
+      startedAt: startedAt ?? this.startedAt,
+      plannedMinutes: plannedMinutes ?? this.plannedMinutes,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      completed: completed ?? this.completed,
+      tzOffsetMinutes: tzOffsetMinutes ?? this.tzOffsetMinutes,
+      localDate: localDate ?? this.localDate,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (plannedMinutes.present) {
+      map['planned_minutes'] = Variable<int>(plannedMinutes.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (completed.present) {
+      map['completed'] = Variable<bool>(completed.value);
+    }
+    if (tzOffsetMinutes.present) {
+      map['tz_offset_minutes'] = Variable<int>(tzOffsetMinutes.value);
+    }
+    if (localDate.present) {
+      map['local_date'] = Variable<String>(localDate.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MeditationSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('userId: $userId, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('plannedMinutes: $plannedMinutes, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('completed: $completed, ')
+          ..write('tzOffsetMinutes: $tzOffsetMinutes, ')
+          ..write('localDate: $localDate, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BodyMeasurementsTable extends BodyMeasurements
     with TableInfo<$BodyMeasurementsTable, BodyMeasurement> {
   @override
@@ -11725,6 +12395,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $HabitSkipsTable habitSkips = $HabitSkipsTable(this);
   late final $HobbiesTable hobbies = $HobbiesTable(this);
   late final $HobbyLogsTable hobbyLogs = $HobbyLogsTable(this);
+  late final $MeditationSessionsTable meditationSessions =
+      $MeditationSessionsTable(this);
   late final $BodyMeasurementsTable bodyMeasurements = $BodyMeasurementsTable(
     this,
   );
@@ -11751,6 +12423,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     habitSkips,
     hobbies,
     hobbyLogs,
+    meditationSessions,
     bodyMeasurements,
     sleepTargets,
     sleepLogs,
@@ -14807,6 +15480,350 @@ typedef $$HobbyLogsTableProcessedTableManager =
       HobbyLog,
       PrefetchHooks Function()
     >;
+typedef $$MeditationSessionsTableCreateCompanionBuilder =
+    MeditationSessionsCompanion Function({
+      required String id,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      required String userId,
+      required DateTime startedAt,
+      required int plannedMinutes,
+      required int durationSeconds,
+      Value<bool> completed,
+      Value<int> tzOffsetMinutes,
+      required String localDate,
+      Value<int> rowid,
+    });
+typedef $$MeditationSessionsTableUpdateCompanionBuilder =
+    MeditationSessionsCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String> userId,
+      Value<DateTime> startedAt,
+      Value<int> plannedMinutes,
+      Value<int> durationSeconds,
+      Value<bool> completed,
+      Value<int> tzOffsetMinutes,
+      Value<String> localDate,
+      Value<int> rowid,
+    });
+
+class $$MeditationSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $MeditationSessionsTable> {
+  $$MeditationSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get plannedMinutes => $composableBuilder(
+    column: $table.plannedMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get completed => $composableBuilder(
+    column: $table.completed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tzOffsetMinutes => $composableBuilder(
+    column: $table.tzOffsetMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localDate => $composableBuilder(
+    column: $table.localDate,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MeditationSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MeditationSessionsTable> {
+  $$MeditationSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get plannedMinutes => $composableBuilder(
+    column: $table.plannedMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get completed => $composableBuilder(
+    column: $table.completed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tzOffsetMinutes => $composableBuilder(
+    column: $table.tzOffsetMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localDate => $composableBuilder(
+    column: $table.localDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MeditationSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MeditationSessionsTable> {
+  $$MeditationSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get plannedMinutes => $composableBuilder(
+    column: $table.plannedMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get completed =>
+      $composableBuilder(column: $table.completed, builder: (column) => column);
+
+  GeneratedColumn<int> get tzOffsetMinutes => $composableBuilder(
+    column: $table.tzOffsetMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localDate =>
+      $composableBuilder(column: $table.localDate, builder: (column) => column);
+}
+
+class $$MeditationSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MeditationSessionsTable,
+          MeditationSession,
+          $$MeditationSessionsTableFilterComposer,
+          $$MeditationSessionsTableOrderingComposer,
+          $$MeditationSessionsTableAnnotationComposer,
+          $$MeditationSessionsTableCreateCompanionBuilder,
+          $$MeditationSessionsTableUpdateCompanionBuilder,
+          (
+            MeditationSession,
+            BaseReferences<
+              _$AppDatabase,
+              $MeditationSessionsTable,
+              MeditationSession
+            >,
+          ),
+          MeditationSession,
+          PrefetchHooks Function()
+        > {
+  $$MeditationSessionsTableTableManager(
+    _$AppDatabase db,
+    $MeditationSessionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MeditationSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MeditationSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MeditationSessionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<int> plannedMinutes = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<bool> completed = const Value.absent(),
+                Value<int> tzOffsetMinutes = const Value.absent(),
+                Value<String> localDate = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MeditationSessionsCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                userId: userId,
+                startedAt: startedAt,
+                plannedMinutes: plannedMinutes,
+                durationSeconds: durationSeconds,
+                completed: completed,
+                tzOffsetMinutes: tzOffsetMinutes,
+                localDate: localDate,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                required String userId,
+                required DateTime startedAt,
+                required int plannedMinutes,
+                required int durationSeconds,
+                Value<bool> completed = const Value.absent(),
+                Value<int> tzOffsetMinutes = const Value.absent(),
+                required String localDate,
+                Value<int> rowid = const Value.absent(),
+              }) => MeditationSessionsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                userId: userId,
+                startedAt: startedAt,
+                plannedMinutes: plannedMinutes,
+                durationSeconds: durationSeconds,
+                completed: completed,
+                tzOffsetMinutes: tzOffsetMinutes,
+                localDate: localDate,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$MeditationSessionsTable, MeditationSession>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $MeditationSessionsTable,
+                    MeditationSession
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MeditationSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MeditationSessionsTable,
+      MeditationSession,
+      $$MeditationSessionsTableFilterComposer,
+      $$MeditationSessionsTableOrderingComposer,
+      $$MeditationSessionsTableAnnotationComposer,
+      $$MeditationSessionsTableCreateCompanionBuilder,
+      $$MeditationSessionsTableUpdateCompanionBuilder,
+      (
+        MeditationSession,
+        BaseReferences<
+          _$AppDatabase,
+          $MeditationSessionsTable,
+          MeditationSession
+        >,
+      ),
+      MeditationSession,
+      PrefetchHooks Function()
+    >;
 typedef $$BodyMeasurementsTableCreateCompanionBuilder =
     BodyMeasurementsCompanion Function({
       required String id,
@@ -17441,6 +18458,8 @@ class $AppDatabaseManager {
       $$HobbiesTableTableManager(_db, _db.hobbies);
   $$HobbyLogsTableTableManager get hobbyLogs =>
       $$HobbyLogsTableTableManager(_db, _db.hobbyLogs);
+  $$MeditationSessionsTableTableManager get meditationSessions =>
+      $$MeditationSessionsTableTableManager(_db, _db.meditationSessions);
   $$BodyMeasurementsTableTableManager get bodyMeasurements =>
       $$BodyMeasurementsTableTableManager(_db, _db.bodyMeasurements);
   $$SleepTargetsTableTableManager get sleepTargets =>

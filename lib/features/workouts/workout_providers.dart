@@ -6,6 +6,8 @@ import '../../data/providers.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../data/tables/tables.dart';
 import 'step_source.dart';
+import 'gps_tracker.dart';
+import 'location_source.dart';
 import 'workout_calc.dart';
 import 'workout_timer.dart';
 
@@ -73,15 +75,25 @@ class ActiveTimerNotifier extends AsyncNotifier<TimerState?> {
 
   /// Starts a timer. For Walk and Run this is the one point where the phone's
   /// step sensor is used (and its permission asked for).
-  Future<void> start(
+  ///
+  /// With [useGps] the person has chosen to follow distance by GPS; location
+  /// is asked for here, at the moment tracking starts. The result says
+  /// whether it was allowed, so the screen can explain when it was not. The
+  /// workout still starts without it.
+  Future<GpsAccess?> start(
     String workoutTypeId, {
     String? iconKey,
     String? intensity,
     String? note,
+    bool useGps = false,
   }) async {
     int? stepBase;
     if (tracksDistance(iconKey)) {
       stepBase = await ref.read(stepSourceProvider).startReading();
+    }
+    GpsAccess? access;
+    if (useGps && tracksDistance(iconKey)) {
+      access = await ref.read(gpsTrackerProvider.notifier).start();
     }
     await _set(
       TimerState(
@@ -90,21 +102,30 @@ class ActiveTimerNotifier extends AsyncNotifier<TimerState?> {
         stepBase: stepBase,
         intensity: intensity,
         note: note,
+        gps: access == GpsAccess.granted,
       ),
     );
+    return access;
   }
 
   Future<void> pause() async {
     final s = state.value;
-    if (s != null) await _set(s.pause(ref.read(clockProvider).now()));
+    if (s == null) return;
+    if (s.gps) ref.read(gpsTrackerProvider.notifier).pause();
+    await _set(s.pause(ref.read(clockProvider).now()));
   }
 
   Future<void> resume() async {
     final s = state.value;
-    if (s != null) await _set(s.resume(ref.read(clockProvider).now()));
+    if (s == null) return;
+    if (s.gps) ref.read(gpsTrackerProvider.notifier).resume();
+    await _set(s.resume(ref.read(clockProvider).now()));
   }
 
-  Future<void> cancel() => _set(null);
+  Future<void> cancel() {
+    ref.read(gpsTrackerProvider.notifier).stop();
+    return _set(null);
+  }
 
   /// Saves the workout and clears the timer. The saved end time is start plus
   /// active time, so paused periods are excluded from the duration.
@@ -126,9 +147,13 @@ class ActiveTimerNotifier extends AsyncNotifier<TimerState?> {
         sensorSteps = total - s.stepBase!;
       }
     }
+    // Stopped here so the distance is final; zero when the app was closed
+    // and reopened mid-workout, in which case steps are used instead.
+    final gpsKm = s.gps ? ref.read(gpsTrackerProvider.notifier).stop() : null;
     final metrics = computeMetrics(
       MetricInputs(
         iconKey: type?.iconKey,
+        gpsDistanceKm: gpsKm,
         activeSeconds: active.inSeconds,
         pausedSeconds: paused.inSeconds,
         intensity: s.intensity,

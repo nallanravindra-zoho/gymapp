@@ -194,9 +194,11 @@ List<_Metric> _walkRunMetrics(Workout w) {
       _Metric(
         'Distance',
         formatDistanceKm(distance),
-        caption: w.metricsNote == 'estimated'
-            ? 'Estimated from steps'
-            : 'Entered by you',
+        caption: switch (w.metricsNote) {
+          'estimated' => 'Estimated from steps',
+          'gps' => 'Followed by GPS',
+          _ => 'Entered by you',
+        },
       )
     else
       const _Metric('Distance', 'Not recorded', muted: true),

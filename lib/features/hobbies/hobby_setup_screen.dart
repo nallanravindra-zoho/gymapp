@@ -331,8 +331,8 @@ class _HobbySetupScreenState extends ConsumerState<HobbySetupScreen> {
               label: Text(switch (v) {
                 HobbyReminderFrequency.daily => 'Daily',
                 HobbyReminderFrequency.weekly => 'Weekly',
-                HobbyReminderFrequency.biweekly => 'Biweekly',
-                HobbyReminderFrequency.monthly => 'Monthly',
+                HobbyReminderFrequency.biweekly => 'Every 2 weeks',
+                HobbyReminderFrequency.monthly => 'Once a month',
               }),
               selected: f == v,
               onSelected: (_) =>
@@ -341,6 +341,19 @@ class _HobbySetupScreenState extends ConsumerState<HobbySetupScreen> {
         ],
       ),
       const SizedBox(height: 4),
+      if (f == HobbyReminderFrequency.biweekly)
+        Text(
+          'Every 2 weeks means one reminder every 14 days from the start '
+          'date, not twice a month.',
+          key: const Key('frequency-note'),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      if (f == HobbyReminderFrequency.monthly)
+        Text(
+          'Once a month means one reminder on the chosen day of each month.',
+          key: const Key('frequency-note'),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
       if (f == HobbyReminderFrequency.weekly)
         Wrap(
           spacing: 8,

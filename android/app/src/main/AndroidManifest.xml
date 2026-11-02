@@ -14,6 +14,9 @@
     <!-- Walk and run: step counting, asked for only when a timed walk or run starts. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
     <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false"/>
+    <!-- Walk and run distance: location, asked for only when the person starts GPS tracking. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE"/>

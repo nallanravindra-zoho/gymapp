@@ -63,6 +63,7 @@ class MetricInputs {
     this.heightCm,
     this.sensorSteps,
     this.enteredDistanceKm,
+    this.gpsDistanceKm,
   });
 
   final String? iconKey;
@@ -77,6 +78,9 @@ class MetricInputs {
   /// Steps counted by the phone sensor during the timed workout.
   final int? sensorSteps;
   final double? enteredDistanceKm;
+
+  /// Distance followed by GPS during a timed walk or run.
+  final double? gpsDistanceKm;
 }
 
 class ComputedMetrics {
@@ -98,16 +102,21 @@ class ComputedMetrics {
   final String? stepsSource;
   final double? distanceKm;
 
-  /// `entered` or `estimate`.
+  /// `gps`, `entered` or `estimate`.
   final String? distanceSource;
   final double? avgSpeedKmh;
   final int activeSeconds;
   final int pausedSeconds;
 
-  /// Stored in `metricsNote`: `estimated` when distance came from steps.
+  /// Stored in `metricsNote`: `estimated` when distance came from steps,
+  /// `gps` when it was followed by GPS, otherwise `measured` (entered).
   String? get note => distanceKm == null
       ? null
-      : (distanceSource == 'estimate' ? 'estimated' : 'measured');
+      : switch (distanceSource) {
+          'estimate' => 'estimated',
+          'gps' => 'gps',
+          _ => 'measured',
+        };
 }
 
 /// Combines inputs into the metrics saved with a workout.
@@ -128,14 +137,19 @@ ComputedMetrics computeMetrics(MetricInputs i) {
       steps = i.sensorSteps;
       stepsSource = 'sensor';
     }
-    if (i.enteredDistanceKm != null && i.enteredDistanceKm! > 0) {
+    if (i.gpsDistanceKm != null && i.gpsDistanceKm! >= 0.01) {
+      distance = _round2(i.gpsDistanceKm!);
+      distanceSource = 'gps';
+    } else if (i.enteredDistanceKm != null && i.enteredDistanceKm! > 0) {
       distance = _round2(i.enteredDistanceKm!);
       distanceSource = 'entered';
     } else if (steps != null) {
       distance = distanceKmFromSteps(steps, stride);
       if (distance != null) distanceSource = 'estimate';
     }
-    if (steps == null && distance != null && distanceSource == 'entered') {
+    if (steps == null &&
+        distance != null &&
+        (distanceSource == 'entered' || distanceSource == 'gps')) {
       final est = stepsFromDistanceKm(distance, stride);
       if (est != null) {
         steps = est;

@@ -7,13 +7,13 @@ import '../features/reminders/reminder_providers.dart';
 import '../features/screen_time/screen_time_providers.dart';
 import '../features/account/sync_providers.dart';
 import '../features/chat/chat_screen.dart';
+import '../features/goals/goals_screen.dart';
 import '../features/groups/groups_screen.dart';
 import '../features/insights/insights_screen.dart';
 import '../features/streaks/celebration_host.dart';
 import '../features/streaks/streak_providers.dart';
 import '../features/today/today_screen.dart';
 import '../features/week/week_providers.dart';
-import '../features/week/week_screen.dart';
 
 class _Tab {
   const _Tab(this.label, this.icon, this.selectedIcon);
@@ -23,8 +23,8 @@ class _Tab {
 }
 
 const _tabs = [
-  _Tab('Today', Icons.home_outlined, Icons.home_rounded),
-  _Tab('Week', Icons.calendar_month_outlined, Icons.calendar_month_rounded),
+  _Tab('Home', Icons.home_outlined, Icons.home_rounded),
+  _Tab('Goals', Icons.flag_outlined, Icons.flag_rounded),
   _Tab('Groups', Icons.groups_outlined, Icons.groups_rounded),
   _Tab('Insights', Icons.lightbulb_outline_rounded, Icons.lightbulb_rounded),
   _Tab('Chat', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded),
@@ -93,7 +93,7 @@ class _AppShellState extends ConsumerState<AppShell>
           index: _index,
           children: const [
             TodayScreen(),
-            WeekScreen(),
+            GoalsScreen(),
             GroupsScreen(),
             InsightsScreen(),
             ChatScreen(),

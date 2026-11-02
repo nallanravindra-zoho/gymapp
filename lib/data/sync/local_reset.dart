@@ -16,6 +16,7 @@ Future<void> wipeLocalAccountData(AppDatabase db, String localUserId) {
     await db.delete(db.habitSkips).go();
     await db.delete(db.hobbyLogs).go();
     await db.delete(db.hobbies).go();
+    await db.delete(db.meditationSessions).go();
     await db.delete(db.bodyMeasurements).go();
     await db.delete(db.sleepLogs).go();
     await db.delete(db.sleepTargets).go();

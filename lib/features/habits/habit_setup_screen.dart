@@ -396,7 +396,10 @@ class _HabitSetupScreenState extends ConsumerState<HabitSetupScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              describeOccurrences(_config.occurrences),
+              _targetEdited
+                  ? describeOccurrences(_config.occurrences)
+                  : '${describeOccurrences(_config.occurrences)} '
+                        '(calculated automatically)',
               key: const Key('reminder-count'),
               style: text.bodySmall,
             ),

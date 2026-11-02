@@ -12,6 +12,7 @@ class TimerState {
     this.stepBase,
     this.intensity,
     this.note,
+    this.gps = false,
   });
 
   final String workoutTypeId;
@@ -30,6 +31,10 @@ class TimerState {
   /// Optional choices made before starting: `low`, `mid` or `high`, and a note.
   final String? intensity;
   final String? note;
+
+  /// Distance is being followed by GPS (the person chose it and allowed
+  /// location when the timer started).
+  final bool gps;
 
   /// Total time paused up to [now], including a pause still in progress.
   Duration paused(DateTime now) => Duration(
@@ -58,6 +63,7 @@ class TimerState {
       stepBase: stepBase,
       intensity: intensity,
       note: note,
+      gps: gps,
     );
   }
 
@@ -70,6 +76,7 @@ class TimerState {
         stepBase: stepBase,
         intensity: intensity,
         note: note,
+        gps: gps,
       );
 
   String toJson() => jsonEncode({
@@ -80,6 +87,7 @@ class TimerState {
     'stepBase': stepBase,
     'intensity': intensity,
     'note': note,
+    'gps': gps,
   });
 
   static TimerState? fromJson(String? raw) {
@@ -100,6 +108,7 @@ class TimerState {
         stepBase: m['stepBase'] as int?,
         intensity: m['intensity'] as String?,
         note: m['note'] as String?,
+        gps: m['gps'] as bool? ?? false,
       );
     } catch (_) {
       return null;

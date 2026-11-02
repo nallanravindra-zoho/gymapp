@@ -167,6 +167,19 @@ class HobbyLogs extends Table with SyncColumns {
   TextColumn get note => text().nullable()();
 }
 
+/// A meditation session. The person picks the length each time; there is no
+/// goal to meet. [durationSeconds] is what was actually spent, [plannedMinutes]
+/// what they chose, and [completed] says whether the timer ran to the end.
+class MeditationSessions extends Table with SyncColumns {
+  TextColumn get userId => text()();
+  DateTimeColumn get startedAt => dateTime()();
+  IntColumn get plannedMinutes => integer()();
+  IntColumn get durationSeconds => integer()();
+  BoolColumn get completed => boolean().withDefault(const Constant(false))();
+  IntColumn get tzOffsetMinutes => integer().withDefault(const Constant(0))();
+  TextColumn get localDate => text()();
+}
+
 /// Private body measurements (R10). Every value is optional so a partial
 /// record is fine. Never shared with groups.
 class BodyMeasurements extends Table with SyncColumns {

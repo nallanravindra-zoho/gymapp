@@ -11,6 +11,7 @@ import '../../data/builtin_workout_types.dart';
 import '../../data/providers.dart';
 import '../../data/tables/tables.dart';
 import 'timer_screen.dart';
+import 'location_source.dart' show GpsAccess, gpsUnavailableMessage;
 import 'workout_calc.dart';
 import 'workout_icons.dart';
 import 'workout_providers.dart';
@@ -58,6 +59,7 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
   late DateTime _start;
   late DateTime _end;
   WorkoutIntensity? _intensity;
+  bool _gps = false;
   final _note = TextEditingController();
   final _distance = TextEditingController();
   bool _saving = false;
@@ -220,18 +222,26 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
         .firstOrNull
         ?.iconKey;
     final note = _note.text.trim();
-    await ref
+    final access = await ref
         .read(activeTimerProvider.notifier)
         .start(
           typeId,
           iconKey: iconKey,
           intensity: _intensity?.name,
           note: note.isEmpty ? null : note,
+          useGps: _gps,
         );
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     nav.pop();
     nav.push(MaterialPageRoute<void>(builder: (_) => const TimerScreen()));
+    // The workout runs either way; say why distance is not followed by GPS.
+    if (access != null && access != GpsAccess.granted) {
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(gpsUnavailableMessage(access))));
+    }
   }
 
   void _toast(String msg) =>
@@ -444,6 +454,19 @@ class _LogWorkoutScreenState extends ConsumerState<LogWorkoutScreen> {
                 child: const Text('Use timer instead'),
               ),
           ] else ...[
+            if (tracksDistance(iconKey)) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Follow distance with GPS'),
+                subtitle: const Text(
+                  'Location is asked for when you start. Keep the app open '
+                  'while tracking.',
+                ),
+                value: _gps,
+                onChanged: (v) => setState(() => _gps = v),
+              ),
+              const SizedBox(height: 6),
+            ],
             FilledButton(
               onPressed: _typeId == null ? null : _startTimer,
               child: const Text('Start timer'),

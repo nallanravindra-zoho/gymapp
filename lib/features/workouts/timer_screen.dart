@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/providers.dart';
+import 'gps_logic.dart';
+import 'gps_tracker.dart';
 import 'workout_calc.dart';
 import 'workout_icons.dart';
 import 'workout_providers.dart';
@@ -94,125 +96,146 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 28),
-                TintedIcon(
-                  icon: workoutIcon(type?.iconKey ?? 'other'),
-                  tint: dark
-                      ? const Color(0xFF2C4A3D)
-                      : const Color(0xFFBFE8D2),
-                  color: dark
-                      ? const Color(0xFF86DDA9)
-                      : const Color(0xFF1D6D57),
-                  size: 92,
-                  iconSize: 48,
-                ),
-                const SizedBox(height: 16),
-                Text(type?.name ?? 'Workout', style: text.headlineSmall),
-                const SizedBox(height: 4),
-                Text(
-                  timer.isPaused ? 'Paused' : 'In progress',
-                  style: text.titleMedium?.copyWith(color: t.accent),
-                ),
-                if (tracksDistance(type?.iconKey)) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    timer.stepBase != null
-                        ? 'Counting steps with your phone'
-                        : stepsUnavailable,
-                    style: text.bodySmall?.copyWith(color: t.textMuted),
-                  ),
-                ],
-                const SizedBox(height: 34),
-                Semantics(
-                  liveRegion: false,
-                  label: 'Elapsed ${formatElapsed(elapsed)}',
-                  child: Text(
-                    formatElapsed(elapsed),
-                    style: text.displaySmall?.copyWith(
-                      fontSize: 60,
-                      color: t.accentDeep,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 38),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _RoundButton(
-                      size: 88,
-                      color: t.accent,
-                      tooltip: timer.isPaused ? 'Resume' : 'Pause',
-                      onPressed: timer.isPaused
-                          ? notifier.resume
-                          : notifier.pause,
-                      child: Icon(
-                        timer.isPaused
-                            ? Icons.play_arrow_rounded
-                            : Icons.pause_rounded,
-                        size: 44,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 26),
-                    _RoundButton(
-                      size: 76,
-                      color: t.surface,
-                      tooltip: 'Stop and save',
-                      onPressed: _stop,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: t.text,
-                          borderRadius: BorderRadius.circular(6),
+          // Scrolls on short screens, and still pins the card and Cancel to
+          // the bottom on tall ones.
+          child: LayoutBuilder(
+            builder: (context, box) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 28),
+                        TintedIcon(
+                          icon: workoutIcon(type?.iconKey ?? 'other'),
+                          tint: dark
+                              ? const Color(0xFF2C4A3D)
+                              : const Color(0xFFBFE8D2),
+                          color: dark
+                              ? const Color(0xFF86DDA9)
+                              : const Color(0xFF1D6D57),
+                          size: 92,
+                          iconSize: 48,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                SoftCard(
-                  color: t.surface,
-                  borderColor: Colors.transparent,
-                  radius: 24,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 18,
-                  ),
-                  child: Row(
-                    children: [
-                      const SproutIcon(size: 62),
-                      const SizedBox(width: 18),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 16),
+                        Text(
+                          type?.name ?? 'Workout',
+                          style: text.headlineSmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          timer.isPaused ? 'Paused' : 'In progress',
+                          style: text.titleMedium?.copyWith(color: t.accent),
+                        ),
+                        if (tracksDistance(type?.iconKey)) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            timer.stepBase != null
+                                ? 'Counting steps with your phone'
+                                : stepsUnavailable,
+                            style: text.bodySmall?.copyWith(color: t.textMuted),
+                          ),
+                          if (timer.gps)
+                            _GpsReadout(activeSeconds: elapsed.inSeconds),
+                        ],
+                        const SizedBox(height: 34),
+                        Semantics(
+                          liveRegion: false,
+                          label: 'Elapsed ${formatElapsed(elapsed)}',
+                          child: Text(
+                            formatElapsed(elapsed),
+                            style: text.displaySmall?.copyWith(
+                              fontSize: 60,
+                              color: t.accentDeep,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 38),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("You've got this.", style: text.titleMedium),
-                            const SizedBox(height: 4),
-                            Text(
-                              'A little progress each day adds up to big results.',
-                              style: text.bodySmall,
+                            _RoundButton(
+                              size: 88,
+                              color: t.accent,
+                              tooltip: timer.isPaused ? 'Resume' : 'Pause',
+                              onPressed: timer.isPaused
+                                  ? notifier.resume
+                                  : notifier.pause,
+                              child: Icon(
+                                timer.isPaused
+                                    ? Icons.play_arrow_rounded
+                                    : Icons.pause_rounded,
+                                size: 44,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 26),
+                            _RoundButton(
+                              size: 76,
+                              color: t.surface,
+                              tooltip: 'Stop and save',
+                              onPressed: _stop,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: t.text,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        const Spacer(),
+                        SoftCard(
+                          color: t.surface,
+                          borderColor: Colors.transparent,
+                          radius: 24,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 18,
+                          ),
+                          child: Row(
+                            children: [
+                              const SproutIcon(size: 62),
+                              const SizedBox(width: 18),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "You've got this.",
+                                      style: text.titleMedium,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'A little progress each day adds up to big results.',
+                                      style: text.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          onPressed: _cancel,
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 22),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  onPressed: _cancel,
-                  child: const Text('Cancel'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -266,6 +289,35 @@ class _RoundButton extends StatelessWidget {
                 child: Center(child: ExcludeSemantics(child: child)),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Distance and average pace while GPS is following a walk or run.
+class _GpsReadout extends ConsumerWidget {
+  const _GpsReadout({required this.activeSeconds});
+
+  final int activeSeconds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final km = ref.watch(gpsTrackerProvider).distanceKm;
+    final pace = paceText(km, activeSeconds);
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Semantics(
+        label:
+            'Distance ${formatDistanceKm(km)}'
+            '${pace == null ? '' : ', average pace $pace'}',
+        child: ExcludeSemantics(
+          child: Text(
+            '${formatDistanceKm(km)}'
+            '${pace == null ? '' : '  •  $pace'}',
+            style: text.titleMedium,
           ),
         ),
       ),

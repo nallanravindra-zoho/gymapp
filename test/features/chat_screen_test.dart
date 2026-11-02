@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Not enough data yet'), findsOneWidget);
 
     // Free questions are not available yet, and the box does not pretend.
-    expect(find.text('Questions are coming in a later update'), findsOneWidget);
+    expect(find.text('Choose a question above'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
   });
 }

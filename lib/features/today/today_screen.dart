@@ -6,9 +6,11 @@ import '../../core/widgets/app_widgets.dart';
 import '../../core/widgets/avatar_button.dart';
 import '../../data/app_database.dart';
 import '../../data/providers.dart';
+import '../goals/home_goals_card.dart';
 import '../habits/habit_manage_screen.dart';
 import '../habits/habits_screen.dart';
 import '../hobbies/hobbies_screen.dart';
+import '../meditation/meditation_screen.dart';
 import '../metrics/measurements_banner.dart';
 import '../screen_time/screen_time_screen.dart';
 import '../sleep/sleep_screen.dart';
@@ -106,6 +108,8 @@ class TodayScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const HomeGoalsCard(),
+                const SizedBox(height: 14),
                 const TodayStreaks(),
                 const SizedBox(height: 14),
                 const MeasurementsBanner(),
@@ -120,6 +124,8 @@ class TodayScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                 ],
                 const _QuickAccess(),
+                const SizedBox(height: 14),
+                const _MeditationCard(),
                 const SizedBox(height: 14),
                 if (today != null) DaySummaryCard(date: today, isToday: true),
                 const SizedBox(height: 14),
@@ -169,6 +175,41 @@ class _ResumeTimerCard extends StatelessWidget {
             child: Text(
               'Timer running',
               style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: t.textMuted),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeditationCard extends StatelessWidget {
+  const _MeditationCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return SoftCard(
+      key: const ValueKey('meditation-card'),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const MeditationScreen())),
+      child: Row(
+        children: [
+          const TintedIcon(icon: Icons.spa_outlined, cat: Cat.leaf),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Meditation', style: text.titleSmall),
+                Text(
+                  'Choose a length and sit for a while',
+                  style: text.bodySmall?.copyWith(color: t.textMuted),
+                ),
+              ],
             ),
           ),
           Icon(Icons.chevron_right_rounded, color: t.textMuted),

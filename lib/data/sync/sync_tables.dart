@@ -47,6 +47,7 @@ const syncTables = <SyncTable>[
   HabitSkipsSync(),
   HobbiesSync(),
   HobbyLogsSync(),
+  MeditationSessionsSync(),
   BodyMeasurementsSync(),
   SleepTargetsSync(),
   SleepLogsSync(),
@@ -1025,6 +1026,67 @@ class HobbyLogsSync extends SyncTable {
             tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
             localDate: Value(r['local_date'] as String),
             note: Value(r['note'] as String?),
+            createdAt: Value(_ts(r['created_at'])),
+            updatedAt: Value(updated),
+            deletedAt: Value(_tsOrNull(r['deleted_at'])),
+          ),
+        );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class MeditationSessionsSync extends SyncTable {
+  const MeditationSessionsSync();
+  @override
+  String get name => 'meditation_sessions';
+
+  @override
+  Future<List<Json>> localChanges(
+    AppDatabase db,
+    DateTime? since,
+    String remoteUserId,
+  ) async {
+    final q = db.select(db.meditationSessions);
+    if (since != null) q.where((x) => x.updatedAt.isBiggerOrEqualValue(since));
+    return [
+      for (final m in await q.get())
+        {
+          'id': m.id,
+          'user_id': remoteUserId,
+          'started_at': _iso(m.startedAt),
+          'planned_minutes': m.plannedMinutes,
+          'duration_seconds': m.durationSeconds,
+          'completed': m.completed,
+          'tz_offset_minutes': m.tzOffsetMinutes,
+          'local_date': m.localDate,
+          'created_at': _iso(m.createdAt),
+          'updated_at': _iso(m.updatedAt),
+          'deleted_at': m.deletedAt == null ? null : _iso(m.deletedAt!),
+        },
+    ];
+  }
+
+  @override
+  Future<bool> applyRemote(AppDatabase db, Json r, String localUserId) async {
+    final existing = await (db.select(
+      db.meditationSessions,
+    )..where((x) => x.id.equals(r['id'] as String))).getSingleOrNull();
+    final updated = _ts(r['updated_at']);
+    if (existing != null && !updated.isAfter(existing.updatedAt)) return false;
+    await db
+        .into(db.meditationSessions)
+        .insertOnConflictUpdate(
+          MeditationSessionsCompanion(
+            id: Value(r['id'] as String),
+            userId: Value(localUserId),
+            startedAt: Value(_ts(r['started_at'])),
+            plannedMinutes: Value(_int(r['planned_minutes'])),
+            durationSeconds: Value(_int(r['duration_seconds'])),
+            completed: Value(r['completed'] as bool),
+            tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
+            localDate: Value(r['local_date'] as String),
             createdAt: Value(_ts(r['created_at'])),
             updatedAt: Value(updated),
             deletedAt: Value(_tsOrNull(r['deleted_at'])),

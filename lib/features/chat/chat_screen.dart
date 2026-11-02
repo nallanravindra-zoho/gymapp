@@ -2,18 +2,68 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/time/local_date.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../goals/goal_logic.dart';
+import '../goals/goal_providers.dart';
+import '../sleep/sleep_providers.dart';
 import '../streaks/streak_providers.dart';
+import '../week/week_providers.dart';
+import '../week/week_screen.dart' show formatWeekRange;
 import 'chat_reports.dart';
+import 'coach_logic.dart';
 
-/// The Chat tab: a friendly summary of the week as quick report cards. Free
-/// questions come in a later release (spec 3), so the message box is shown
-/// switched off rather than pretending to work.
-class ChatScreen extends ConsumerWidget {
+/// What the coach reads: this week's goal progress and sleep consistency.
+final coachDataProvider = Provider<CoachData?>((ref) {
+  final today = ref.watch(todayDateProvider).value;
+  if (today == null) return null;
+  final week = ref.watch(goalSummaryProvider((GoalPeriod.week, today)));
+  final sleep = ref.watch(sleepConsistencyProvider);
+  final hasSleep =
+      sleep != null && !sleep.byDate.values.every((v) => v == null);
+  return CoachData(
+    weekLabel: formatWeekRange(weekStartOf(today)),
+    goals: week.categories,
+    sleepOnSchedule: hasSleep ? sleep.onSchedule : null,
+    sleepDays: sleep?.days ?? 0,
+  );
+});
+
+/// The Chat tab: quick report cards and a small set of questions the coach
+/// answers from the person's own goals and logs. Free text needs a language
+/// model, which this release does not use, so the message box stays off.
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends ConsumerState<ChatScreen> {
+  final _asked = <CoachQuestion>[];
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Adds a question and brings its answer into view.
+  void _ask(CoachQuestion q) {
+    setState(() => _asked.add(q));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final r = ref.watch(chatReportsProvider);
     final name = ref.watch(userStreamProvider).value?.displayName.trim() ?? '';
     final t = context.tokens;
@@ -68,6 +118,7 @@ class ChatScreen extends ConsumerWidget {
         children: [
           Expanded(
             child: ListView(
+              controller: _scroll,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 Row(
@@ -108,6 +159,39 @@ class ChatScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 18),
                 for (final c in cards) ...[c, const SizedBox(height: 12)],
+                const SizedBox(height: 6),
+                Text('Ask the coach', style: text.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final q in CoachQuestion.values)
+                      ActionChip(
+                        label: Text(q.label),
+                        onPressed: () => _ask(q),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (final q in _asked) ...[
+                  _Bubble(text: q.label, fromUser: true),
+                  const SizedBox(height: 8),
+                  _Bubble(
+                    text: ref.watch(coachDataProvider) == null
+                        ? ''
+                        : answerFor(q, ref.watch(coachDataProvider)!).text,
+                    basis: ref.watch(coachDataProvider) == null
+                        ? null
+                        : answerFor(q, ref.watch(coachDataProvider)!).basis,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (_asked.isNotEmpty)
+                  Text(
+                    coachDisclaimer,
+                    style: text.bodySmall?.copyWith(color: t.textMuted),
+                  ),
               ],
             ),
           ),
@@ -130,7 +214,7 @@ class ChatScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Questions are coming in a later update',
+                      'Choose a question above',
                       style: text.bodyMedium?.copyWith(color: t.textMuted),
                     ),
                   ),
@@ -195,6 +279,48 @@ class _ReportCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.text, this.fromUser = false, this.basis});
+
+  final String text;
+  final bool fromUser;
+  final String? basis;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final style = Theme.of(context).textTheme;
+    return Align(
+      alignment: fromUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: fromUser ? t.accentSoft : t.cat(Cat.screen).tint,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(text, style: style.bodyMedium),
+              if (basis != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  basis!,
+                  style: style.bodySmall?.copyWith(color: t.textMuted),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

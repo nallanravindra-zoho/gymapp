@@ -167,7 +167,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Every hour'));
       await tester.pumpAndSettle();
-      expect(find.text('9 reminders a day'), findsOneWidget);
+      expect(find.textContaining('9 reminders a day'), findsOneWidget);
       expect(find.textContaining('9 hours'), findsNothing);
       expect(find.textContaining('hours a day'), findsNothing);
       await save(tester);
@@ -184,10 +184,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Every 30 minutes'));
       await tester.pumpAndSettle();
-      expect(find.text('17 reminders a day'), findsOneWidget);
+      expect(find.textContaining('17 reminders a day'), findsOneWidget);
       await tester.tap(find.text('Every 4 hours'));
       await tester.pumpAndSettle();
-      expect(find.text('3 reminders a day'), findsOneWidget);
+      expect(find.textContaining('3 reminders a day'), findsOneWidget);
       await save(tester);
       expect((await db.select(db.habits).get()).single.dailyTarget, 3);
     });
@@ -290,7 +290,7 @@ void main() {
       await pickTime(tester, hour: 6, pm: true);
       expect(find.text(windowOrderMessage), findsNothing);
       expect(saveButton(tester).onPressed, isNotNull);
-      expect(find.text('5 reminders a day'), findsOneWidget);
+      expect(find.textContaining('5 reminders a day'), findsOneWidget);
     });
 
     appTest('the same From and To is allowed (one reminder)', (
@@ -305,7 +305,7 @@ void main() {
       await tester.pumpAndSettle();
       await pickTime(tester, hour: 9, pm: false);
       expect(find.text(windowOrderMessage), findsNothing);
-      expect(find.text('1 reminder a day'), findsOneWidget);
+      expect(find.textContaining('1 reminder a day'), findsOneWidget);
     });
 
     appTest('Set times with none added disables Save', (tester, db) async {

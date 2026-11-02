@@ -13,6 +13,9 @@ import '../test_helpers.dart';
 Future<void> openInsights(WidgetTester tester) async {
   await tester.tap(find.byIcon(Icons.lightbulb_outline_rounded));
   await tester.pumpAndSettle();
+  // The goal progress section sits above the week; scroll past it.
+  await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+  await tester.pumpAndSettle();
 }
 
 Future<void> addWorkouts(
@@ -102,6 +105,11 @@ void main() {
     await tester.tap(find.text('This week'));
     await tester.pumpAndSettle();
     expect(find.text('11 – 17 May'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('3 active days this week, up from 0.'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('3 active days this week, up from 0.'), findsOneWidget);
     expect(find.text('No workouts logged this week.'), findsNothing);
 
@@ -115,6 +123,8 @@ void main() {
     expect(find.text('No insights for this week yet.'), findsOneWidget);
 
     await addWorkouts(db, lastWeekDays);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
     await tester.pumpAndSettle();
     expect(find.text('4 active days last week, up from 0.'), findsOneWidget);
     expect(find.text('No insights for this week yet.'), findsNothing);

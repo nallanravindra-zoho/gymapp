@@ -20,6 +20,10 @@ fully offline with no account, and syncing is added on top once you sign in.
 | `tests/revised_requirements.sql` | Behaviour tests for the above, including that body measurements are never visible to group mates and that deleting an account removes the new rows |
 | `migrations/20261013000000_group_categories.sql` | Groups by category (workouts, Healthy Habits, sleep, screen time): onboarding choices on `create_group`/`join_group`, target-based daily and weekly scoring, the `group_score_snapshots` table, and the functions the group screen reads (`group_available_categories`, `group_overall_board`, `group_category_board`, `group_member_metrics`). The scoring rules are in `docs/group-scoring.md`. Run after 20261012; safe to run twice |
 | `tests/group_categories.sql` | Behaviour tests for the above: every scoring rule with exact numbers, who can see which category, the overall number never being returned, opt-out clearing snapshots, and a guard on which functions may read sleep, screen time and body measurements |
+| `migrations/20261102000000_meditation_sessions.sql` | Meditation sessions: one private table (no goal, the person picks each length) with RLS and sync. Safe to run twice |
+| `tests/meditation_sessions.sql` | Behaviour tests for the above: private by construction, another account sees and changes nothing, stale writes ignored, deleting the account removes the rows |
+| `migrations/20261102000001_gps_distance.sql` | Lets a workout's `metrics_note` be `gps` (distance followed by GPS) as well as `estimated` and `measured`. Only a check constraint changes. Run after 20261102000000. Safe to run twice |
+| `tests/gps_distance.sql` | Behaviour tests for the above |
 | `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 
