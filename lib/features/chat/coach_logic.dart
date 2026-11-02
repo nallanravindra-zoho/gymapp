@@ -51,6 +51,7 @@ String _step(GoalCategory c) => switch (c) {
   GoalCategory.habits => 'Log one habit you have not done yet today.',
   GoalCategory.sleep => 'Aim to keep tonight’s bedtime close to your target.',
   GoalCategory.screen => 'Try one screen-free break this evening.',
+  GoalCategory.nutrition => 'Log your next meal when you have it.',
   GoalCategory.hobbies => 'Ten minutes on a hobby is a start.',
 };
 

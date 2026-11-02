@@ -143,6 +143,13 @@ jobs:
           for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql migrations/20261009000000_delete_account.sql migrations/20261010000000_numeric_invite_codes.sql migrations/20261011000000_four_digit_codes.sql migrations/20261012000000_revised_requirements.sql migrations/20261013000000_group_categories.sql migrations/20261102000000_meditation_sessions.sql migrations/20261102000001_gps_distance.sql migrations/20261102000001_gps_distance.sql tests/gps_distance.sql; do
             psql -v ON_ERROR_STOP=1 -d wellbeing_gps -f supabase/$f
           done
+      # Nutrition meal logs. All migrations, with this one applied twice.
+      - name: Run meal log tests
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create database wellbeing_meals'
+          for f in tests/harness.sql migrations/20261007000000_private_data_and_sync.sql migrations/20261008000000_groups.sql migrations/20261009000000_delete_account.sql migrations/20261010000000_numeric_invite_codes.sql migrations/20261011000000_four_digit_codes.sql migrations/20261012000000_revised_requirements.sql migrations/20261013000000_group_categories.sql migrations/20261102000002_meal_logs.sql migrations/20261102000002_meal_logs.sql tests/meal_logs.sql; do
+            psql -v ON_ERROR_STOP=1 -d wellbeing_meals -f supabase/$f
+          done
       # Categories, per-category privacy and scoring. All migrations, with this one applied twice.
       - name: Run group-categories tests
         run: |

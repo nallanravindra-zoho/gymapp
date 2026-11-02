@@ -180,6 +180,23 @@ class MeditationSessions extends Table with SyncColumns {
   TextColumn get localDate => text()();
 }
 
+/// A meal or food the person logged by hand. Calories and macronutrients are
+/// optional and always estimates. [source] is `listed` when the values came
+/// from the app's built-in food list, `entered` when typed by the person.
+class MealLogs extends Table with SyncColumns {
+  TextColumn get userId => text()();
+  TextColumn get name => text()();
+  RealColumn get servings => real().withDefault(const Constant(1))();
+  IntColumn get calories => integer().nullable()();
+  RealColumn get proteinG => real().nullable()();
+  RealColumn get carbsG => real().nullable()();
+  RealColumn get fatG => real().nullable()();
+  TextColumn get source => text().withDefault(const Constant('entered'))();
+  DateTimeColumn get loggedAt => dateTime()();
+  IntColumn get tzOffsetMinutes => integer().withDefault(const Constant(0))();
+  TextColumn get localDate => text()();
+}
+
 /// Private body measurements (R10). Every value is optional so a partial
 /// record is fine. Never shared with groups.
 class BodyMeasurements extends Table with SyncColumns {

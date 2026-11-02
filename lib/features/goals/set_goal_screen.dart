@@ -5,6 +5,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../habits/habit_manage_screen.dart';
 import '../hobbies/hobby_manage_screen.dart';
+import '../nutrition/nutrition_screen.dart';
 import '../screen_time/screen_time_screen.dart';
 import '../sleep/sleep_screen.dart';
 import 'goal_logic.dart';
@@ -15,6 +16,7 @@ IconData goalIcon(GoalCategory c) => switch (c) {
   GoalCategory.habits => Icons.water_drop_outlined,
   GoalCategory.sleep => Icons.bedtime_outlined,
   GoalCategory.screen => Icons.smartphone_rounded,
+  GoalCategory.nutrition => Icons.restaurant_rounded,
   GoalCategory.hobbies => Icons.menu_book_outlined,
 };
 
@@ -23,6 +25,7 @@ Cat goalCat(GoalCategory c) => switch (c) {
   GoalCategory.habits => Cat.habit,
   GoalCategory.sleep => Cat.sleep,
   GoalCategory.screen => Cat.screen,
+  GoalCategory.nutrition => Cat.streak,
   GoalCategory.hobbies => Cat.hobby,
 };
 
@@ -32,6 +35,7 @@ String goalTagline(GoalCategory c) => switch (c) {
   GoalCategory.habits => 'Small habits, steady change',
   GoalCategory.sleep => 'Rest well, on your schedule',
   GoalCategory.screen => 'More presence, less scrolling',
+  GoalCategory.nutrition => 'Fuel your body',
   GoalCategory.hobbies => 'Make time for what you love',
 };
 
@@ -51,6 +55,7 @@ Future<void> openGoalEditor(BuildContext context, GoalCategory category) {
     GoalCategory.habits => push(const HabitManageScreen()),
     GoalCategory.sleep => push(const SleepScreen()),
     GoalCategory.screen => push(const ScreenTimeScreen()),
+    GoalCategory.nutrition => push(const NutritionScreen()),
     GoalCategory.hobbies => push(const HobbyManageScreen()),
   };
 }

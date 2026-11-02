@@ -102,6 +102,7 @@ void main() {
     expect(await db.select(db.hobbies).get(), isEmpty);
     expect(await db.select(db.hobbyLogs).get(), isEmpty);
     expect(await db.select(db.meditationSessions).get(), isEmpty);
+    expect(await db.select(db.mealLogs).get(), isEmpty);
     expect(await db.select(db.bodyMeasurements).get(), isEmpty);
     expect(await db.select(db.habitSkips).get(), isEmpty);
 
@@ -112,13 +113,13 @@ void main() {
         .customSelect('PRAGMA user_version')
         .map((r) => r.read<int>('user_version'))
         .getSingle();
-    expect(version, 3);
+    expect(version, 4);
   });
 
-  test('a fresh database is created at v3 with every table', () async {
+  test('a fresh database is created at v4 with every table', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    expect(db.schemaVersion, 3);
+    expect(db.schemaVersion, 4);
     expect(await db.select(db.hobbies).get(), isEmpty);
     expect(await db.select(db.bodyMeasurements).get(), isEmpty);
     expect((await db.select(db.workoutTypes).get()), isNotEmpty);

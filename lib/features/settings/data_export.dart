@@ -80,6 +80,9 @@ Future<DataExport> buildJsonExport(AppDatabase db, DateTime now) async {
     'hobbyLogs': rows(
       await (db.select(db.hobbyLogs)..where((t) => t.deletedAt.isNull())).get(),
     ),
+    'mealLogs': rows(
+      await (db.select(db.mealLogs)..where((t) => t.deletedAt.isNull())).get(),
+    ),
     'meditationSessions': rows(
       await (db.select(
         db.meditationSessions,

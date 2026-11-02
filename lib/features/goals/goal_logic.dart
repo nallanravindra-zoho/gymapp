@@ -8,8 +8,8 @@ import '../hobbies/hobby_logic.dart';
 import '../week/week_marks.dart'
     show habitsMarkMet, screenMarkMet, sleepMarkMet;
 
-/// The goal areas on the Goals screen. Nutrition is not part of this release.
-enum GoalCategory { workout, habits, sleep, screen, hobbies }
+/// The goal areas on the Goals screen.
+enum GoalCategory { workout, habits, sleep, screen, nutrition, hobbies }
 
 enum GoalPeriod { day, week, month }
 
@@ -19,6 +19,7 @@ extension GoalCategoryText on GoalCategory {
     GoalCategory.habits => 'Healthy habits',
     GoalCategory.sleep => 'Sleep',
     GoalCategory.screen => 'Screen time',
+    GoalCategory.nutrition => 'Nutrition',
     GoalCategory.hobbies => 'Hobbies',
   };
 }
@@ -56,6 +57,8 @@ class GoalInputs {
     this.sleepTargetMinutes = 0,
     this.screenRows = const [],
     this.screenGoalMinutes,
+    this.nutritionDailyServings,
+    this.meals = const [],
   });
 
   /// Sessions per week the person aims for; null when no workout goal is set.
@@ -70,6 +73,10 @@ class GoalInputs {
   final int sleepTargetMinutes;
   final List<ScreenTimeDailyData> screenRows;
   final int? screenGoalMinutes;
+
+  /// Servings a day the person aims for; null when no nutrition goal is set.
+  final int? nutritionDailyServings;
+  final List<MealLog> meals;
 }
 
 /// Progress of one category over a period, normalised against its own
@@ -210,6 +217,33 @@ List<CategoryGoal> categoryGoals({
       CategoryGoal(
         category: GoalCategory.screen,
         fraction: met / dates.length,
+        met: met,
+        total: dates.length,
+        unit: 'days',
+      ),
+    );
+  }
+
+  // Nutrition: servings logged against a daily target. Calories are never
+  // used here, so the goal does not depend on a food database.
+  final servingsTarget = i.nutritionDailyServings;
+  if (servingsTarget != null && servingsTarget > 0) {
+    final byDate = <String, double>{};
+    for (final m in i.meals) {
+      if (m.deletedAt != null) continue;
+      byDate[m.localDate] = (byDate[m.localDate] ?? 0) + m.servings;
+    }
+    final days = <double>[];
+    var met = 0;
+    for (final d in dates) {
+      final eaten = byDate[d] ?? 0;
+      days.add(math.min(1.0, eaten / servingsTarget));
+      if (eaten >= servingsTarget) met++;
+    }
+    out.add(
+      CategoryGoal(
+        category: GoalCategory.nutrition,
+        fraction: _mean(days),
         met: met,
         total: dates.length,
         unit: 'days',

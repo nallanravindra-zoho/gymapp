@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wellbeing/data/app_database.dart';
 import 'package:wellbeing/data/tables/tables.dart';
 import 'package:wellbeing/features/goals/goal_logic.dart';
 import 'package:wellbeing/features/hobbies/hobby_logic.dart';
@@ -180,6 +181,68 @@ void main() {
         ),
         isEmpty,
       );
+    });
+  });
+
+  group('nutrition', () {
+    MealLog meal(String id, String date, double servings) => MealLog(
+      id: id,
+      createdAt: DateTime.utc(2026, 5, 1),
+      updatedAt: DateTime.utc(2026, 5, 1),
+      deletedAt: null,
+      userId: 'u',
+      name: 'x',
+      servings: servings,
+      calories: null,
+      proteinG: null,
+      carbsG: null,
+      fatG: null,
+      source: 'entered',
+      loggedAt: DateTime.utc(2026, 5, 1),
+      tzOffsetMinutes: 0,
+      localDate: date,
+    );
+
+    test('servings count against the daily target, calories never do', () {
+      final goals = categoryGoals(
+        period: GoalPeriod.week,
+        dates: dates,
+        inputs: GoalInputs(
+          nutritionDailyServings: 4,
+          meals: [
+            meal('a', '2026-05-11', 2),
+            meal('b', '2026-05-11', 2),
+            meal('c', '2026-05-12', 1),
+          ],
+        ),
+      );
+      final g = of(goals, GoalCategory.nutrition);
+      expect(g.met, 1);
+      expect(g.total, 7);
+      expect(g.fraction, closeTo((1 + 0.25) / 7, 1e-9));
+    });
+
+    test('is absent without a target', () {
+      expect(
+        categoryGoals(
+          period: GoalPeriod.week,
+          dates: dates,
+          inputs: GoalInputs(meals: [meal('a', '2026-05-11', 3)]),
+        ).where((g) => g.category == GoalCategory.nutrition),
+        isEmpty,
+      );
+    });
+
+    test('a single day is its own share of the target', () {
+      final goals = categoryGoals(
+        period: GoalPeriod.day,
+        dates: ['2026-05-11'],
+        inputs: GoalInputs(
+          nutritionDailyServings: 5,
+          meals: [meal('a', '2026-05-11', 2)],
+        ),
+      );
+      expect(of(goals, GoalCategory.nutrition).fraction, 0.4);
     });
   });
 

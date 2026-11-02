@@ -48,6 +48,7 @@ const syncTables = <SyncTable>[
   HobbiesSync(),
   HobbyLogsSync(),
   MeditationSessionsSync(),
+  MealLogsSync(),
   BodyMeasurementsSync(),
   SleepTargetsSync(),
   SleepLogsSync(),
@@ -1085,6 +1086,75 @@ class MeditationSessionsSync extends SyncTable {
             plannedMinutes: Value(_int(r['planned_minutes'])),
             durationSeconds: Value(_int(r['duration_seconds'])),
             completed: Value(r['completed'] as bool),
+            tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
+            localDate: Value(r['local_date'] as String),
+            createdAt: Value(_ts(r['created_at'])),
+            updatedAt: Value(updated),
+            deletedAt: Value(_tsOrNull(r['deleted_at'])),
+          ),
+        );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class MealLogsSync extends SyncTable {
+  const MealLogsSync();
+  @override
+  String get name => 'meal_logs';
+
+  @override
+  Future<List<Json>> localChanges(
+    AppDatabase db,
+    DateTime? since,
+    String remoteUserId,
+  ) async {
+    final q = db.select(db.mealLogs);
+    if (since != null) q.where((x) => x.updatedAt.isBiggerOrEqualValue(since));
+    return [
+      for (final m in await q.get())
+        {
+          'id': m.id,
+          'user_id': remoteUserId,
+          'name': m.name,
+          'servings': m.servings,
+          'calories': m.calories,
+          'protein_g': m.proteinG,
+          'carbs_g': m.carbsG,
+          'fat_g': m.fatG,
+          'source': m.source,
+          'logged_at': _iso(m.loggedAt),
+          'tz_offset_minutes': m.tzOffsetMinutes,
+          'local_date': m.localDate,
+          'created_at': _iso(m.createdAt),
+          'updated_at': _iso(m.updatedAt),
+          'deleted_at': m.deletedAt == null ? null : _iso(m.deletedAt!),
+        },
+    ];
+  }
+
+  @override
+  Future<bool> applyRemote(AppDatabase db, Json r, String localUserId) async {
+    final existing = await (db.select(
+      db.mealLogs,
+    )..where((x) => x.id.equals(r['id'] as String))).getSingleOrNull();
+    final updated = _ts(r['updated_at']);
+    if (existing != null && !updated.isAfter(existing.updatedAt)) return false;
+    await db
+        .into(db.mealLogs)
+        .insertOnConflictUpdate(
+          MealLogsCompanion(
+            id: Value(r['id'] as String),
+            userId: Value(localUserId),
+            name: Value(r['name'] as String),
+            servings: Value((r['servings'] as num).toDouble()),
+            calories: Value((r['calories'] as num?)?.toInt()),
+            proteinG: Value((r['protein_g'] as num?)?.toDouble()),
+            carbsG: Value((r['carbs_g'] as num?)?.toDouble()),
+            fatG: Value((r['fat_g'] as num?)?.toDouble()),
+            source: Value(r['source'] as String),
+            loggedAt: Value(_ts(r['logged_at'])),
             tzOffsetMinutes: Value(_int(r['tz_offset_minutes'])),
             localDate: Value(r['local_date'] as String),
             createdAt: Value(_ts(r['created_at'])),

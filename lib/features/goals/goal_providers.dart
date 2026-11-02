@@ -35,6 +35,33 @@ final workoutGoalProvider = AsyncNotifierProvider<WorkoutGoalNotifier, int?>(
   WorkoutGoalNotifier.new,
 );
 
+const _nutritionTargetKey = 'nutrition_daily_servings';
+
+/// Servings of food a day the person aims for; null means no goal. Kept on
+/// this phone, like the workout and screen-time goals.
+class NutritionGoalNotifier extends AsyncNotifier<int?> {
+  @override
+  Future<int?> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_nutritionTargetKey);
+  }
+
+  Future<void> set(int? servings) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (servings == null) {
+      await prefs.remove(_nutritionTargetKey);
+    } else {
+      await prefs.setInt(_nutritionTargetKey, servings);
+    }
+    state = AsyncData(servings);
+  }
+}
+
+final nutritionGoalProvider =
+    AsyncNotifierProvider<NutritionGoalNotifier, int?>(
+      NutritionGoalNotifier.new,
+    );
+
 /// An inclusive span of local dates, `yyyy-MM-dd`.
 typedef DateRange = (String from, String to);
 
@@ -44,6 +71,14 @@ final _rangeWorkoutsProvider = StreamProvider.family<List<Workout>, DateRange>((
 ) async* {
   final user = await ref.watch(currentUserProvider.future);
   yield* ref.watch(workoutRepositoryProvider).watchBetween(user.id, r.$1, r.$2);
+});
+
+final _rangeMealsProvider = StreamProvider.family<List<MealLog>, DateRange>((
+  ref,
+  r,
+) async* {
+  final user = await ref.watch(currentUserProvider.future);
+  yield* ref.watch(mealRepositoryProvider).watchBetween(user.id, r.$1, r.$2);
 });
 
 final _rangeSleepProvider = StreamProvider.family<List<SleepLog>, DateRange>((
@@ -79,6 +114,8 @@ final goalInputsProvider = Provider.family<GoalInputs, DateRange>((ref, range) {
     sleepTargetMinutes: ref.watch(sleepTargetMinutesProvider),
     screenRows: ref.watch(_rangeScreenProvider(range)).value ?? const [],
     screenGoalMinutes: ref.watch(screenTimeGoalProvider).value,
+    nutritionDailyServings: ref.watch(nutritionGoalProvider).value,
+    meals: ref.watch(_rangeMealsProvider(range)).value ?? const [],
   );
 });
 

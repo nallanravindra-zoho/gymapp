@@ -18,6 +18,7 @@ part 'app_database.g.dart';
     Hobbies,
     HobbyLogs,
     MeditationSessions,
+    MealLogs,
     BodyMeasurements,
     SleepTargets,
     SleepLogs,
@@ -34,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'wellbeing'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,6 +46,7 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 2) await _upgradeToV2(m);
       if (from < 3) await m.createTable(meditationSessions);
+      if (from < 4) await m.createTable(mealLogs);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

@@ -102,6 +102,7 @@ class _GoalsOverview extends ConsumerWidget {
     final workoutTarget = ref.watch(workoutGoalProvider).value;
     final habits = ref.watch(activeHabitsProvider).value ?? const [];
     final screenLimit = ref.watch(screenTimeGoalProvider).value;
+    final nutritionTarget = ref.watch(nutritionGoalProvider).value;
     final hobbyGoals = ref.watch(hobbyGoalsProvider);
     final sleepMinutes = ref.watch(sleepTargetMinutesProvider);
 
@@ -121,6 +122,10 @@ class _GoalsOverview extends ConsumerWidget {
         sleepMinutes > 0 ? '${_hours(sleepMinutes)} per night' : null,
       GoalCategory.screen =>
         screenLimit == null ? null : 'Under ${_hours(screenLimit)} daily',
+      GoalCategory.nutrition =>
+        nutritionTarget == null
+            ? null
+            : '$nutritionTarget ${nutritionTarget == 1 ? 'serving' : 'servings'} daily',
       GoalCategory.hobbies =>
         hobbyGoals.isEmpty
             ? null

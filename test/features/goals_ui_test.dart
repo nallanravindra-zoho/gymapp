@@ -44,9 +44,8 @@ void main() {
     for (final c in GoalCategory.values) {
       expect(find.text(c.label), findsOneWidget);
     }
-    // Workout, healthy habits and screen time have no goal yet.
+    // Workout, healthy habits, screen time and nutrition have no goal yet.
     expect(find.text('Set a goal'), findsWidgets);
-    expect(find.text('Nutrition'), findsNothing);
   });
 
   appTest('a workout goal is set in one sheet and shows its progress', (
@@ -81,10 +80,7 @@ void main() {
     expect(find.text('11 – 17 May'), findsOneWidget);
   });
 
-  appTest('Set a goal offers the five categories and no nutrition', (
-    tester,
-    db,
-  ) async {
+  appTest('Set a goal offers every category', (tester, db) async {
     await openGoals(tester);
     await tester.tap(find.byTooltip('Set a goal'));
     await tester.pumpAndSettle();
@@ -93,7 +89,6 @@ void main() {
     for (final c in GoalCategory.values) {
       expect(find.text(c.label), findsOneWidget);
     }
-    expect(find.text('Nutrition'), findsNothing);
   });
 
   appTest('Home shows today goal progress and one suggestion', (

@@ -24,6 +24,8 @@ fully offline with no account, and syncing is added on top once you sign in.
 | `tests/meditation_sessions.sql` | Behaviour tests for the above: private by construction, another account sees and changes nothing, stale writes ignored, deleting the account removes the rows |
 | `migrations/20261102000001_gps_distance.sql` | Lets a workout's `metrics_note` be `gps` (distance followed by GPS) as well as `estimated` and `measured`. Only a check constraint changes. Run after 20261102000000. Safe to run twice |
 | `tests/gps_distance.sql` | Behaviour tests for the above |
+| `migrations/20261102000002_meal_logs.sql` | Nutrition: one private table of hand-logged meals (calories and macros optional estimates) with RLS and sync. Run after 20261102000001. Safe to run twice |
+| `tests/meal_logs.sql` | Behaviour tests for the above: private by construction, another account sees and changes nothing, constraints, deleting the account removes the rows |
 | `tests/groups.sql` | Behaviour tests for groups (sharing switches, leaderboard totals, leaving, limits) |
 | `tests/harness.sql` | Stand-in for Supabase's `auth` schema, so the tests run anywhere |
 
