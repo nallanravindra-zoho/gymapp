@@ -12,7 +12,7 @@ Flutter 3.47 / Dart 3.13, Riverpod 3, Drift (SQLite, schema v2, local-first), Su
 - CI: GitHub Actions (`.github/workflows`): analyze, tests, debug APK, release build check, backend SQL tests on real PostgreSQL 16. Signed release steps: docs/release.md.
 
 ## Source of truth for requirements
-The spec and "Revised Requirements, 10 October 2026" (R1 to R14) are NOT in the repo; the user has them (wellbeing-app-spec.md and ui-sample-screens.png, in wellbeing-app-spec-with-ui_10_Oct.zip). Where the picture and the written text disagree, the written text wins. All of R1 to R11 are implemented (see "Status").
+`docs/reference/wellbeing-app-spec.md` is the full spec, including "Revised Requirements, 10 October 2026" (R1 to R14, from line ~406; it supersedes earlier text). `docs/reference/ui-sample-screens.png` is the reference UI (view it with the Read tool). Where the picture and the written text disagree, the written text wins. All of R1 to R11 are implemented (see "Status").
 
 ## Architecture notes
 - `lib/data`: Drift tables (`tables/tables.dart`), repositories, sync (`sync/sync_tables.dart` maps each table to the server). New synced table = Drift table + SyncTable + Supabase migration with RLS + tests.
