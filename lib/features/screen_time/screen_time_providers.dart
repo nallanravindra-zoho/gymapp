@@ -17,6 +17,12 @@ final screenTimeAccessProvider = FutureProvider<bool>(
   (ref) => ref.watch(usageSourceProvider).hasAccess(),
 );
 
+/// Bumped when the way phone use is measured changes, so days read the old
+/// way are read again. Version 2: one foreground app at a time, nothing
+/// counted while the screen is off.
+const _measureVersionKey = 'screen_time_measure_version';
+const _measureVersion = 2;
+
 final screenTimeSyncProvider = Provider(
   (ref) => ScreenTimeSync(
     source: ref.watch(usageSourceProvider),
@@ -25,6 +31,13 @@ final screenTimeSyncProvider = Provider(
     repo: ref.watch(screenTimeRepositoryProvider),
     existingDates: ref.watch(screenTimeRepositoryProvider).datesBetween,
     currentTarget: () => ref.read(screenTimeGoalProvider).value,
+    shouldReread: () async =>
+        (await SharedPreferences.getInstance()).getInt(_measureVersionKey) !=
+        _measureVersion,
+    markReread: () async => (await SharedPreferences.getInstance()).setInt(
+      _measureVersionKey,
+      _measureVersion,
+    ),
   ),
 );
 

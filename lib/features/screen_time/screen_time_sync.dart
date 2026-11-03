@@ -21,6 +21,8 @@ class ScreenTimeSync {
     required this.repo,
     required this.existingDates,
     this.currentTarget,
+    this.shouldReread,
+    this.markReread,
   });
 
   final UsageSource source;
@@ -35,6 +37,12 @@ class ScreenTimeSync {
   /// The daily limit in force now; recorded with each day that is read.
   final int? Function()? currentTarget;
 
+  /// True once after the way usage is measured changed, so the earlier days
+  /// already stored are read again. [markReread] is called when that
+  /// finishes. Without them earlier days are only read when missing.
+  final Future<bool> Function()? shouldReread;
+  final Future<void> Function()? markReread;
+
   static const historyDays = 7;
 
   Future<SyncOutcome> sync() async {
@@ -45,7 +53,10 @@ class ScreenTimeSync {
       final now = clock.now().toLocal();
       final today = users.today(user);
       final from = shiftLocalDate(today, -(historyDays - 1));
-      final have = await existingDates(user.id, from, today);
+      final reread = await shouldReread?.call() ?? false;
+      final have = reread
+          ? <String>{}
+          : await existingDates(user.id, from, today);
 
       for (var back = historyDays - 1; back >= 0; back--) {
         final date = shiftLocalDate(today, -back);
@@ -62,7 +73,10 @@ class ScreenTimeSync {
         if (end.isAfter(now)) end = now;
         if (!end.isAfter(start)) continue;
 
-        final usage = await source.readDay(start, end);
+        final usage = (await source.readDay(
+          start,
+          end,
+        )).cappedTo(end.difference(start).inMinutes);
         await repo.upsertDay(
           userId: user.id,
           localDate: date,
@@ -73,6 +87,7 @@ class ScreenTimeSync {
           targetMinutes: isToday ? currentTarget?.call() : null,
         );
       }
+      if (reread) await markReread?.call();
       return SyncOutcome.done;
     } catch (_) {
       return SyncOutcome.failed;

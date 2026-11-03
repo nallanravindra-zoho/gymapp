@@ -26,6 +26,22 @@ class DayUsage {
 
   static const lateEveningStartHour = 21;
 
+  /// This usage limited to [windowMinutes], the time that actually passed.
+  /// Phone use cannot be longer than the window it was read from, so a larger
+  /// total is a reading error: it is cut to the window and the categories are
+  /// scaled to match, keeping their shares.
+  DayUsage cappedTo(int windowMinutes) {
+    if (windowMinutes < 0 || totalMinutes <= windowMinutes) return this;
+    final ratio = totalMinutes == 0 ? 0.0 : windowMinutes / totalMinutes;
+    return DayUsage(
+      totalMinutes: windowMinutes,
+      categories: {
+        for (final e in categories.entries) e.key: (e.value * ratio).floor(),
+      },
+      hours: [for (final h in hours) (h * ratio).floor()],
+    );
+  }
+
   factory DayUsage.fromMap(Map<Object?, Object?> m) => DayUsage(
     totalMinutes: (m['totalMinutes'] as num?)?.toInt() ?? 0,
     categories: {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -260,6 +262,68 @@ void main() {
       final todayEnd = seen.last;
       expect(todayEnd, DateTime.utc(2026, 5, 13, 10).toLocal());
     });
+
+    test('a reading longer than the time that passed is cut to it', () async {
+      // The 12 May window is 24 h = 1440 min; 70 h cannot be right.
+      source = FakeUsageSource(
+        byDate: {
+          '2026-05-12': const DayUsage(
+            totalMinutes: 4241,
+            categories: {'productivity': 2008, 'social': 1773, 'other': 460},
+          ),
+        },
+      );
+      await make().sync();
+      final row = (await stored()).firstWhere(
+        (r) => r.localDate == '2026-05-12',
+      );
+      expect(row.totalMinutes, 1440);
+      final cats = jsonDecode(row.categoryMinutes) as Map;
+      // Shares are kept: productivity was 47% and stays about 47%.
+      expect((cats['productivity'] as int) / 1440, closeTo(0.47, 0.01));
+      // Today (10 h so far) is capped to the time since midnight.
+      source = FakeUsageSource(
+        byDate: {'2026-05-13': const DayUsage(totalMinutes: 4000)},
+      );
+      await make().sync();
+      final today = (await stored()).firstWhere(
+        (r) => r.localDate == '2026-05-13',
+      );
+      expect(today.totalMinutes, lessThanOrEqualTo(24 * 60));
+    });
+
+    test(
+      'earlier days are read again once after the measuring changed',
+      () async {
+        final repo = ScreenTimeRepository(db, clock);
+        var pending = true;
+        var marked = 0;
+        ScreenTimeSync build() => ScreenTimeSync(
+          source: source,
+          clock: clock,
+          users: UserRepository(db, clock),
+          repo: repo,
+          existingDates: repo.datesBetween,
+          shouldReread: () async => pending,
+          markReread: () async {
+            pending = false;
+            marked++;
+          },
+        );
+
+        await make().sync();
+        source.reads.clear();
+        await build().sync();
+        // Every day of the week is read again, not only today.
+        expect(source.reads.length, 7);
+        expect(marked, 1);
+
+        source.reads.clear();
+        await build().sync();
+        expect(source.reads.toSet(), {'2026-05-13'});
+        expect(marked, 1);
+      },
+    );
 
     test('a failing read reports failure without throwing', () async {
       final repo = ScreenTimeRepository(db, clock);

@@ -43,7 +43,6 @@ class UsageReader(private val context: Context) {
         val events = manager.queryEvents(startMillis, endMillis)
         val event = UsageEvents.Event()
 
-        val openSince = HashMap<String, Long>()
         val msByCategory = HashMap<String, Long>()
         val msByHour = LongArray(24)
         var totalMs = 0L
@@ -57,20 +56,53 @@ class UsageReader(private val context: Context) {
             addToHours(msByHour, from, to)
         }
 
+        // One app is in the foreground at a time, and nothing counts while the
+        // screen is off or locked. Tracking every package separately let a
+        // single lost "paused" event keep an app open for hours, and several
+        // of them added up to more than a day.
+        var current: String? = null
+        var currentClass: String? = null
+        var currentSince = 0L
+
+        fun closeCurrent(at: Long) {
+            current?.let { close(it, currentSince, at) }
+            current = null
+            currentClass = null
+        }
+
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            val pkg = event.packageName ?: continue
             @Suppress("DEPRECATION")
             when (event.eventType) {
-                UsageEvents.Event.MOVE_TO_FOREGROUND ->
-                    // A second resume without a pause keeps the earlier start.
-                    if (!openSince.containsKey(pkg)) openSince[pkg] = event.timeStamp
-                UsageEvents.Event.MOVE_TO_BACKGROUND ->
-                    openSince.remove(pkg)?.let { close(pkg, it, event.timeStamp) }
+                UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                    val pkg = event.packageName ?: continue
+                    if (pkg != current) {
+                        // Another app took over: the earlier one has ended.
+                        closeCurrent(event.timeStamp)
+                        current = pkg
+                        currentSince = event.timeStamp
+                    }
+                    // Moving between screens of the same app keeps it open.
+                    currentClass = event.className
+                }
+                UsageEvents.Event.MOVE_TO_BACKGROUND, EVENT_ACTIVITY_STOPPED ->
+                    // Only the screen that is showing can end the session; a
+                    // late "paused" from the screen just left must not.
+                    if (event.packageName == current &&
+                        (currentClass == null || event.className == currentClass)
+                    ) {
+                        closeCurrent(event.timeStamp)
+                    }
+                EVENT_SCREEN_NON_INTERACTIVE,
+                EVENT_KEYGUARD_SHOWN,
+                EVENT_DEVICE_SHUTDOWN -> closeCurrent(event.timeStamp)
             }
         }
-        // Apps still in the foreground at the end of the window.
-        for ((pkg, since) in openSince) close(pkg, since, endMillis)
+        // The app still showing at the end of the window.
+        closeCurrent(endMillis)
+
+        // Usage can never exceed the time that has passed.
+        totalMs = minOf(totalMs, endMillis - startMillis)
 
         return DayUsage(
             totalMinutes = (totalMs / 60_000).toInt(),
@@ -113,6 +145,13 @@ class UsageReader(private val context: Context) {
     }
 
     companion object {
+        // Event types added after the API 21 constants; they simply never
+        // occur on older Android versions.
+        private const val EVENT_ACTIVITY_STOPPED = 23
+        private const val EVENT_SCREEN_NON_INTERACTIVE = 16
+        private const val EVENT_KEYGUARD_SHOWN = 17
+        private const val EVENT_DEVICE_SHUTDOWN = 26
+
         // Android has no browser category, so common browsers are listed.
         private val BROWSERS = setOf(
             "com.android.chrome",
