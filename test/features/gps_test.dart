@@ -121,6 +121,49 @@ void main() {
       expect(m.avgSpeedKmh, closeTo(6.4, 0.01));
     });
 
+    test('GPS far below what the steps imply is not trusted', () {
+      // 3,000 steps at 170 cm is about 2.1 km; GPS only saw 1.5 km, under
+      // 80% of that.
+      final m = computeMetrics(
+        const MetricInputs(
+          iconKey: 'walk',
+          activeSeconds: 3120,
+          heightCm: 170,
+          sensorSteps: 3000,
+          gpsDistanceKm: 1.5,
+        ),
+      );
+      expect(m.distanceSource, 'estimate');
+      expect(m.distanceKm, closeTo(2.12, 0.01));
+      expect(m.note, 'estimated');
+    });
+
+    test('GPS close to the steps is kept', () {
+      final m = computeMetrics(
+        const MetricInputs(
+          iconKey: 'walk',
+          activeSeconds: 3120,
+          heightCm: 170,
+          sensorSteps: 3000,
+          gpsDistanceKm: 1.9,
+        ),
+      );
+      expect(m.distanceSource, 'gps');
+      expect(m.distanceKm, 1.9);
+    });
+
+    test('with no height or steps to compare, GPS is all there is', () {
+      final m = computeMetrics(
+        const MetricInputs(
+          iconKey: 'walk',
+          activeSeconds: 1800,
+          sensorSteps: 3000,
+          gpsDistanceKm: 1.7,
+        ),
+      );
+      expect(m.distanceSource, 'gps');
+    });
+
     test('with no GPS distance, steps are used as before', () {
       final m = computeMetrics(
         const MetricInputs(

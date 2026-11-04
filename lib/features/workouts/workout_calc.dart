@@ -34,6 +34,12 @@ double? strideMeters({required double? heightCm, required String? iconKey}) {
   return heightCm / 100 * factor;
 }
 
+/// GPS distance is trusted only when it is at least this share of what the
+/// steps imply. Below it the signal was probably weak or lost (indoors, a
+/// pocket, a narrow street) while the step sensor kept counting, so the step
+/// estimate is used and labelled as an estimate.
+const gpsTrustRatio = 0.8;
+
 double? distanceKmFromSteps(int steps, double? strideM) {
   if (strideM == null || steps <= 0) return null;
   return _round2(steps * strideM / 1000);
@@ -137,8 +143,16 @@ ComputedMetrics computeMetrics(MetricInputs i) {
       steps = i.sensorSteps;
       stepsSource = 'sensor';
     }
-    if (i.gpsDistanceKm != null && i.gpsDistanceKm! >= 0.01) {
-      distance = _round2(i.gpsDistanceKm!);
+    final stepDistance = steps == null
+        ? null
+        : distanceKmFromSteps(steps, stride);
+    final gps = i.gpsDistanceKm;
+    final gpsUsable =
+        gps != null &&
+        gps >= 0.01 &&
+        (stepDistance == null || gps >= stepDistance * gpsTrustRatio);
+    if (gpsUsable) {
+      distance = _round2(gps);
       distanceSource = 'gps';
     } else if (i.enteredDistanceKm != null && i.enteredDistanceKm! > 0) {
       distance = _round2(i.enteredDistanceKm!);

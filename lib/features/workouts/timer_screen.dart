@@ -314,10 +314,21 @@ class _GpsReadout extends ConsumerWidget {
             'Distance ${formatDistanceKm(km)}'
             '${pace == null ? '' : ', average pace $pace'}',
         child: ExcludeSemantics(
-          child: Text(
-            '${formatDistanceKm(km)}'
-            '${pace == null ? '' : '  •  $pace'}',
-            style: text.titleMedium,
+          child: Column(
+            children: [
+              Text(
+                '${formatDistanceKm(km)}'
+                '${pace == null ? '' : '  •  $pace'}',
+                style: text.titleMedium,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Distance by GPS. It can read low indoors or with a weak '
+                'signal; the saved distance then uses your steps.',
+                textAlign: TextAlign.center,
+                style: text.bodySmall,
+              ),
+            ],
           ),
         ),
       ),
